@@ -1,0 +1,4 @@
+mamba create -n learningarmy python=3.11
+mamba activate learningarmy
+pip install pytest
+pip install pandas openpyxl

@@ -17,6 +17,8 @@ def run_experiment(hyper_config, problem_config):
     model = train_model(train_dataset, val_dataset, hyper_config, problem_config)
 
     # Evaluate model
+    # should report time taken, precision/recall perclassifier
+    # and overall precision/recall
     report_model(model, val_dataset, test_dataset, hyper_config)
 
     return
@@ -63,10 +65,10 @@ def train_model(train_dataset, val_dataset, hyper_config, problem_config):
             for x, y, p in zip(X_batch, y_batch, p_batch):
                 x_embed = embed_func(x)
 
-                for d in num_domains:
+                for d in range(num_domains):
                     num_criteria = problem_config[p][d]["num_criteria"]
 
-                    for c in num_criteria:
+                    for c in range(num_criteria):
                         c_embed = criteria_embed_func(c)
                         final_representation = criteria_combiner(x_embed, c_embed)
                         y_pred = domain_model_dict[d](final_representation)

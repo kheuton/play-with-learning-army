@@ -1,5 +1,7 @@
 data/
 
+config/data_config.yaml
+
 # vscode
 .vscode
 .pytest_cache

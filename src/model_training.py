@@ -1,5 +1,7 @@
+from data_loader import load_dataset
 
-def run_experiment(hyper_config, problem_config):
+
+def run_experiment(hyper_config, problem_config, data_config):
     """
     Run a single experiment
     :param hyper_config: dict, hyperparameters for the experiment
@@ -8,9 +10,8 @@ def run_experiment(hyper_config, problem_config):
     """
 
     # Load data
-    train_dataset = load_dataset(hyper_config["train_x_path"], hyper_config["train_y_path"])
-    val_dataset = load_dataset(hyper_config["val_x_path"], hyper_config["val_y_path"])
-    test_dataset = load_dataset(hyper_config["test_x_path"], hyper_config["test_y_path"])
+    train_dataset, val_dataset, test_dataset = load_dataset(data_config, hyper_config,
+                                                            train=True, val=True, test=True)
 
     # Train model
     model = train_model(train_dataset, val_dataset, hyper_config, problem_config)

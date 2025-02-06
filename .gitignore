@@ -2,6 +2,8 @@ data/
 
 config/data_config.yaml
 
+scratch.ipynb
+
 # vscode
 .vscode
 .pytest_cache

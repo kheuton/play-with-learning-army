@@ -59,10 +59,10 @@ def data_split(x, y, problem_ids, student_ids, data_config):
         file_path = data_config["folded_train_x_file"].format(fold=fold, num_test_students=num_test_students)  # Format the path with the fold number
         os.makedirs(os.path.dirname(file_path), exist_ok=True)  # Create directories if they don't exist
 
-        pd.DataFrame(fold_train_x).to_csv(data_config["folded_train_x_file"].format(fold=fold, num_test_students=num_test_students))
-        pd.DataFrame(fold_train[1]).to_csv(data_config["folded_train_y_file"].format(fold=fold, num_test_students=num_test_students))
-        pd.DataFrame(fold_val_x).to_csv(data_config["folded_val_x_file"].format(fold=fold, num_test_students=num_test_students))
-        pd.DataFrame(fold_val[1]).to_csv(data_config["folded_val_y_file"].format(fold=fold, num_test_students=num_test_students))
+        pd.DataFrame(fold_train_x).to_csv(data_config["folded_train_x_file"].format(fold=fold, num_test_students=num_test_students), index=False)
+        pd.DataFrame(fold_train[1]).to_csv(data_config["folded_train_y_file"].format(fold=fold, num_test_students=num_test_students), index=False)
+        pd.DataFrame(fold_val_x).to_csv(data_config["folded_val_x_file"].format(fold=fold, num_test_students=num_test_students), index=False)
+        pd.DataFrame(fold_val[1]).to_csv(data_config["folded_val_y_file"].format(fold=fold, num_test_students=num_test_students), index=False)
 
 
     # split data into train, val, and test sets
@@ -80,12 +80,12 @@ def data_split(x, y, problem_ids, student_ids, data_config):
     test_x = pd.concat((test[0], test[2], test[3]), axis=1)  
 
     # save x and y
-    pd.DataFrame(train_x).to_csv(data_config["train_x_file"].format(num_test_students=num_test_students))
-    pd.DataFrame(train[1]).to_csv(data_config["train_y_file"].format(num_test_students=num_test_students))
-    pd.DataFrame(val_x).to_csv(data_config["val_x_file"].format(num_test_students=num_test_students))
-    pd.DataFrame(val[1]).to_csv(data_config["val_y_file"].format(num_test_students=num_test_students))
-    pd.DataFrame(test_x).to_csv(data_config["test_x_file"].format(num_test_students=num_test_students))
-    pd.DataFrame(test[1]).to_csv(data_config["test_y_file"].format(num_test_students=num_test_students))
+    pd.DataFrame(train_x).to_csv(data_config["train_x_file"].format(num_test_students=num_test_students), index=False)
+    pd.DataFrame(train[1]).to_csv(data_config["train_y_file"].format(num_test_students=num_test_students), index=False)
+    pd.DataFrame(val_x).to_csv(data_config["val_x_file"].format(num_test_students=num_test_students), index=False)
+    pd.DataFrame(val[1]).to_csv(data_config["val_y_file"].format(num_test_students=num_test_students), index=False)
+    pd.DataFrame(test_x).to_csv(data_config["test_x_file"].format(num_test_students=num_test_students), index=False)
+    pd.DataFrame(test[1]).to_csv(data_config["test_y_file"].format(num_test_students=num_test_students), index=False)
 
 
     return

@@ -22,36 +22,28 @@ def read_raw(file_path, data_config, problem_id):
 
     return x, y, problem_ids, student_ids
 
-def load_dataset(data_config, hyper_config, train=False, val=False, test=False):
+def load_dataset(hyper_config, train=False, val=False, test=False):
     
-    data_dir = data_config['processed_data_dir']
-
     outputs = ()
 
     if train:
-        processed_train_x_path = os.path.join(data_dir, hyper_config['train_x_file'])
-        processed_train_y_path = os.path.join(data_dir, hyper_config['train_y_file'])
-        processed_train_features, processed_train_labels = load_processed(processed_train_x_path, processed_train_y_path)
+        processed_train_features, processed_train_labels = load_processed(hyper_config['train_x_file'], hyper_config['train_y_file'])
         train_dataset = make_dataset(processed_train_features, processed_train_labels)
 
         outputs += (train_dataset,)
 
     if val:
-        processed_val_x_path = os.path.join(data_dir, hyper_config['val_x_file'])
-        processed_val_y_path = os.path.join(data_dir, hyper_config['val_y_file'])
-        processed_val_features, processed_val_labels = load_processed(processed_val_x_path, processed_val_y_path)
+        processed_val_features, processed_val_labels = load_processed(hyper_config['val_x_file'], hyper_config['val_y_file'])
         val_dataset = make_dataset(processed_val_features, processed_val_labels)
 
         outputs += (val_dataset,)
 
     if test:
-        processed_test_x_path = os.path.join(data_dir, hyper_config['test_x_file'])
-        processed_test_y_path = os.path.join(data_dir, hyper_config['test_y_file'])
-        processed_test_features, processed_test_labels = load_processed(processed_test_x_path, processed_test_y_path)
+        processed_test_features, processed_test_labels = load_processed(hyper_config['test_x_file'], hyper_config['test_y_file'])
         test_dataset = make_dataset(processed_test_features, processed_test_labels)
 
         outputs += (test_dataset,)
-    
+
     return outputs
 
 def load_processed(x_path, y_path):
@@ -69,4 +61,6 @@ def make_dataset(features, labels):
 
     # create pytorch dataset
     dataset = (x, y, problem_id, student_id)
+
+    return dataset
 

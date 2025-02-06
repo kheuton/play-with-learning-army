@@ -7,7 +7,6 @@ def run_experiment(hyper_config, problem_config):
     :return: float, accuracy of the model
     """
 
-
     # Load data
     train_dataset = load_dataset(hyper_config["train_x_path"], hyper_config["train_y_path"])
     val_dataset = load_dataset(hyper_config["val_x_path"], hyper_config["val_y_path"])

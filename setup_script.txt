@@ -3,3 +3,6 @@ mamba activate learningarmy
 pip install pytest
 pip install pandas openpyxl
 pip install pyyaml
+pip install torch
+pip install scikit-learn
+pip install transformers

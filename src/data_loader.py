@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import torch
 
 def read_raw(file_path, data_config, problem_id):
     """
@@ -21,6 +22,23 @@ def read_raw(file_path, data_config, problem_id):
     student_ids = data[data_config['student_id_col']]
 
     return x, y, problem_ids, student_ids
+
+def to_device(dataset, device):
+    """
+    Move a dataset to torch tensors and a device
+    :param dataset: tuple, (x,y,problem_id,student_id) dataset
+    :param device: torch.device, device to move the data to
+    :return: tuple, (X, y) dataset on the device
+    """
+    x, y, problem_id, student_id = dataset
+
+    x = torch.tensor(x.values).to(device)
+    y = torch.tensor(y.values).to(device)
+    problem_id = torch.tensor(problem_id.values).to(device)
+    student_id = torch.tensor(student_id.values).to(device)
+
+
+    return torch.utils.data.TensorDataset(x, y, problem_id, student_id)
 
 def load_dataset(hyper_config, train=False, val=False, test=False):
     
@@ -47,16 +65,33 @@ def load_dataset(hyper_config, train=False, val=False, test=False):
     return outputs
 
 def load_processed(x_path, y_path):
+    # make sure x values are all strings
     x = pd.read_csv(x_path)
+    # todo make sure x are nice strings
     y = pd.read_csv(y_path)
-    return x, y
+    import ast
+    import numpy as np
+    y['0'] = y['0'].apply(lambda x: list(ast.literal_eval(x)))
+    list_of_arrays = y['0'].apply(lambda x: np.array(x)).tolist()
+
+    # Find the maximum length of the arrays
+    max_length = max(len(arr) for arr in list_of_arrays)
+
+    # Pad the arrays with NaNs to make them the same length
+    padded_y = np.array([np.pad(arr, (0, max_length - len(arr)), 'constant', constant_values=-999) for arr in list_of_arrays], dtype=np.float32)
+
+    return x, padded_y
 
 def make_dataset(features, labels):
 
     # extract problem_id and student_id as last 2 columns of x
-    problem_id = features.iloc[:, -2]
-    student_id = features.iloc[:, -1]
-    x = features.iloc[:, :-2]
+    problem_id = features.iloc[:, 1].values
+    student_id = features.iloc[:, 2]
+    
+    # go from Student ## -> ##
+    student_id = student_id.apply(lambda x: int(x.split(' ')[1])).values
+
+    x = features.iloc[:, 0].values.tolist()
     y = labels
 
     # create pytorch dataset

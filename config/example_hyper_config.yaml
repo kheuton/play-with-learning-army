@@ -1,0 +1,15 @@
+train_x_file: data/clean/test_15/train_x.csv
+train_y_file: data/clean/test_15/train_y.csv
+val_x_file: data/clean/test_15/val_x.csv
+val_y_file: data/clean/test_15/val_y.csv
+test_x_file: data/clean/test_15/test_x.csv
+test_y_file: data/clean/test_15/test_y.csv
+embedder: bert
+criteria_embedder: identity
+combiner: concatenate
+weight_decay: 0.01
+learning_rate: 0.001
+batch_size: 32
+num_epochs: 1000
+device: cuda
+finetune: True

@@ -39,4 +39,3 @@ if __name__ == '__main__':
     data_config = yaml.load(open(args.data_config), Loader=yaml.FullLoader)
 
     process_data(data_config)
-

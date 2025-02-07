@@ -31,9 +31,11 @@ def run_experiment(hyper_config, problem_config):
     criteria_combiner = initialize_combiner(hyper_config)
 
     domain_model_dict = initialize_domain_models(embedder.embedding_size,  embedder.device, problem_config)
+    print(f'Preloss')
     loss_func = initialize_loss(hyper_config, embedder)
+    print(f'Post loss')
     optimizer = initialize_optimizer(hyper_config, domain_model_dict, embedder)
-
+    print(f'Post optimizer')
     model = train_model(train_dataset, val_dataset,
                         embedder, criteria_embedder, criteria_combiner,
                         domain_model_dict,
@@ -46,7 +48,7 @@ def run_experiment(hyper_config, problem_config):
 
 def evaluate_model(dataloader, hyper_config, embed_func, criteria_embed_func, criteria_combiner, domain_model_dict, loss_func, problem_config, num_domains):
     total_loss = 0
-    all_preds, all_labels = [], []
+    all_preds, all_labels, all_weights = [], [], []
     
     with torch.no_grad():
         for batch in dataloader:
@@ -62,13 +64,27 @@ def evaluate_model(dataloader, hyper_config, embed_func, criteria_embed_func, cr
                         c_embed = criteria_embed_func(torch.tensor([[c]]).to(embed_func.device))
                         final_representation = criteria_combiner(x_embed, c_embed)
                         y_pred = domain_model_dict[d](final_representation)
-                        
-                        total_loss += loss_func(torch.squeeze(y_pred), y[criteria_counter]).item()
+                        weight = 1/num_criteria
+
                         all_preds.append(y_pred.detach().cpu().numpy())
                         all_labels.append(y[criteria_counter].cpu().numpy())
+                        all_weights.append(weight)
+                        criteria_counter += 1
 
-    all_preds = np.array(all_preds).flatten()
-    all_labels = np.array(all_labels, dtype=int).flatten()
+        all_preds = torch.tensor(np.array(all_preds).flatten(), dtype=torch.float32)
+        all_labels = torch.tensor(np.array(all_labels, dtype=int).flatten(), dtype=torch.float32)
+        all_weights = torch.tensor(np.array(all_weights), dtype=torch.float32)
+        
+        params = torch.nn.utils.parameters_to_vector(embed_func.model.parameters()).detach()
+        for model in domain_model_dict.values():
+            params = torch.cat([params, torch.nn.utils.parameters_to_vector(model.parameters()).detach()])
+
+        #print(all_preds)
+        #print(all_labels)
+        total_loss = loss_func(all_preds, all_labels, all_weights, params)
+
+    all_preds = all_preds.detach().cpu().numpy()
+    all_labels = all_labels.detach().cpu().numpy()
     threshold_preds = (all_preds > 0.5).astype(int).flatten()
     
     metrics = {
@@ -118,10 +134,13 @@ def train_model(train_dataset, val_dataset,
         epoch_loss = 0
         all_preds, all_labels = [], []
         
+        
         for batch in train_dataloader:
             optimizer.zero_grad()
             batch_loss = 0
             X_batch, y_batch, p_batch, s_batch = batch
+
+            all_batch_preds, all_batch_labels, all_batch_weights = [], [], []
 
             for x, y, p, s in zip(X_batch, y_batch, p_batch, s_batch):
                 x, y, p, s = embed_func.preprocess_data((x, y, p, s), hyper_config)
@@ -135,22 +154,36 @@ def train_model(train_dataset, val_dataset,
                         c_embed = criteria_embed_func(torch.tensor([[c]]).to(embed_func.device))
                         final_representation = criteria_combiner(x_embed, c_embed)
                         y_pred = domain_model_dict[d](final_representation)
+                        weight = 1/num_criteria 
 
-                        instance_loss = loss_func(torch.squeeze(y_pred), y[criteria_counter])
-                        scaled_instance_loss = 1/num_criteria * instance_loss
-                        batch_loss += scaled_instance_loss
-                        
-                        all_preds.append(y_pred.detach().cpu().numpy())
-                        all_labels.append(y[criteria_counter].cpu().numpy())
+                        all_batch_preds.append(y_pred)
+                        all_batch_labels.append(y[criteria_counter])
+                        all_batch_weights.append(weight)
                         criteria_counter += 1
-                        
+            
+            #print(all_batch_labels)
+            all_batch_preds = torch.stack(all_batch_preds)
+            all_batch_labels = torch.stack(all_batch_labels)
+            all_batch_weights = torch.tensor(all_batch_weights).to(embed_func.device)
+            
+            # combine parameters in embedder and all domain models
+            params = torch.nn.utils.parameters_to_vector(embed_func.model.parameters()).detach()
+            for model in domain_model_dict.values():
+                params = torch.cat([params, torch.nn.utils.parameters_to_vector(model.parameters()).detach()])
+
+            batch_loss = loss_func(torch.squeeze(all_batch_preds), all_batch_labels, all_batch_weights, params)
             
             batch_loss.backward()
             optimizer.step()
             epoch_loss += batch_loss.item()
+            all_preds.append(all_batch_preds.detach().cpu().numpy())
+            all_labels.append(all_batch_labels.detach().cpu().numpy())
         
-        all_preds = np.array(all_preds).flatten()
-        all_labels = np.array(all_labels, dtype=int).flatten()
+        # flatten all_preds and all_labels
+
+        all_preds = np.concatenate(all_preds).flatten()
+        # cast labels to int
+        all_labels = np.concatenate(all_labels).astype(int).flatten()
         threshold_preds = (all_preds > 0.5).astype(int).flatten()
         train_acc = accuracy_score(all_labels, threshold_preds)
         precision, recall, _, _ = precision_recall_fscore_support(all_labels, threshold_preds, average='macro')

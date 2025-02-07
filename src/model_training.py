@@ -47,7 +47,7 @@ def run_experiment(hyper_config, problem_config):
     return
 
 def evaluate_model(dataloader, hyper_config, embed_func, criteria_embed_func, criteria_combiner, domain_model_dict, loss_func, problem_config, num_domains):
-    total_loss = 0
+    total_loss, total_nll, total_bb_log_prob, total_clf_log_prob = 0, 0, 0, 0
     all_preds, all_labels, all_weights = [], [], []
     
     with torch.no_grad():
@@ -81,7 +81,12 @@ def evaluate_model(dataloader, hyper_config, embed_func, criteria_embed_func, cr
 
         #print(all_preds)
         #print(all_labels)
-        total_loss = loss_func(all_preds, all_labels, all_weights, params)
+        loss, nll, bb_log_prob, clf_log_prob = loss_func(all_preds, all_labels, all_weights, params)
+
+        total_loss += loss.item()
+        total_nll += nll.item()
+        total_bb_log_prob += bb_log_prob.item()
+        total_clf_log_prob += clf_log_prob.item()
 
     all_preds = all_preds.detach().cpu().numpy()
     all_labels = all_labels.detach().cpu().numpy()
@@ -89,13 +94,16 @@ def evaluate_model(dataloader, hyper_config, embed_func, criteria_embed_func, cr
     
     metrics = {
         'val_loss': total_loss,
+        'val_nll': total_nll,
+        'val_bb_log_prob': total_bb_log_prob,
+        'val_clf_log_prob': total_clf_log_prob,
         'val_accuracy': accuracy_score(all_labels, threshold_preds),
         'val_precision': precision_recall_fscore_support(all_labels, threshold_preds, average='macro')[0],
         'val_recall': precision_recall_fscore_support(all_labels, threshold_preds, average='macro')[1],
         'val_auroc': roc_auc_score(all_labels, all_preds),
         'val_auprc': average_precision_score(all_labels, all_preds)
     }
-    return total_loss, metrics
+    return nll, metrics
 
 def train_model(train_dataset, val_dataset,
                 embed_func, criteria_embed_func, criteria_combiner,
@@ -109,7 +117,7 @@ def train_model(train_dataset, val_dataset,
 
     num_domains = problem_config["num_domains"]
     batch_size = hyper_config["batch_size"]
-    best_val_loss = float('inf')
+    best_val_nll = float('inf')
     
     train_metrics = []
     val_metrics_list = []
@@ -132,6 +140,10 @@ def train_model(train_dataset, val_dataset,
 
     for epoch in range(hyper_config["num_epochs"]):
         epoch_loss = 0
+        epoch_nll = 0
+        epoch_bb_log_prob = 0
+        epoch_clf_log_prob = 0
+
         all_preds, all_labels = [], []
         
         
@@ -171,11 +183,15 @@ def train_model(train_dataset, val_dataset,
             for model in domain_model_dict.values():
                 params = torch.cat([params, torch.nn.utils.parameters_to_vector(model.parameters()).detach()])
 
-            batch_loss = loss_func(torch.squeeze(all_batch_preds), all_batch_labels, all_batch_weights, params)
+            batch_loss, batch_nll, batch_bb_log_prob, batch_clf_log_prob = loss_func(torch.squeeze(all_batch_preds), all_batch_labels, all_batch_weights, params)
             
             batch_loss.backward()
             optimizer.step()
             epoch_loss += batch_loss.item()
+            epoch_nll += batch_nll.item()
+            epoch_bb_log_prob += batch_bb_log_prob.item()
+            epoch_clf_log_prob += batch_clf_log_prob.item()
+
             all_preds.append(all_batch_preds.detach().cpu().numpy())
             all_labels.append(all_batch_labels.detach().cpu().numpy())
         
@@ -190,10 +206,13 @@ def train_model(train_dataset, val_dataset,
         auroc = roc_auc_score(all_labels, all_preds)  # Keep raw values for AUROC
         auprc = average_precision_score(all_labels, all_preds)  # Keep raw values for AUPRC
         
-        train_metrics.append([epoch, epoch_loss, train_acc, precision, recall, auroc, auprc])
+        train_metrics.append([epoch, epoch_loss, epoch_nll, epoch_bb_log_prob, epoch_clf_log_prob, train_acc, precision, recall, auroc, auprc])
         
         wandb.log({
             'train_loss': epoch_loss,
+            'train_nll': epoch_nll,
+            'train_bb_log_prob': epoch_bb_log_prob,
+            'train_clf_log_prob': epoch_clf_log_prob,
             'train_accuracy': train_acc,
             'train_precision': precision,
             'train_recall': recall,
@@ -201,12 +220,12 @@ def train_model(train_dataset, val_dataset,
             'train_auprc': auprc
         })
         
-        val_loss, val_metrics = evaluate_model(val_dataloader,hyper_config, embed_func, criteria_embed_func, criteria_combiner, domain_model_dict, loss_func, problem_config, num_domains)
-        val_metrics_list.append([epoch, val_loss] + list(val_metrics.values()))
+        val_nll, val_metrics = evaluate_model(val_dataloader,hyper_config, embed_func, criteria_embed_func, criteria_combiner, domain_model_dict, loss_func, problem_config, num_domains)
+        val_metrics_list.append([epoch] + list(val_metrics.values()))
         wandb.log(val_metrics)
         
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+        if val_nll < best_val_nll:
+            best_val_nll = val_nll
             save_dict = {'domain_model_dict': domain_model_dict}
             if hyper_config['finetune']:
                 save_dict['embed_func'] = embed_func
@@ -214,10 +233,14 @@ def train_model(train_dataset, val_dataset,
         
         print(f'Epoch {epoch} loss: {epoch_loss}')
     
-    train_df = pd.DataFrame(train_metrics, columns=['epoch', 'loss', 'accuracy', 'precision', 'recall', 'auroc', 'auprc'])
+    train_df = pd.DataFrame(train_metrics, columns=['epoch', 'loss', 'nll', 'bb_log_prob',
+                                                    'clf_log_prob', 'accuracy', 'precision',
+                                                      'recall', 'auroc', 'auprc'])
     train_df.to_csv(hyper_config['train_metrics_path'], index=False)
     
-    val_df = pd.DataFrame(val_metrics_list, columns=['epoch', 'loss', 'accuracy', 'precision', 'recall', 'auroc', 'auprc'])
+    val_df = pd.DataFrame(val_metrics_list, columns=['epoch', 'loss', 'nll',
+                                                      'bb_log_prob', 'clf_log_prob', 'accuracy',
+                                                        'precision', 'recall', 'auroc', 'auprc'])
     val_df.to_csv(hyper_config['val_metrics_path'], index=False)
 
     return

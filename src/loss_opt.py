@@ -13,12 +13,12 @@ class L2SPLoss(torch.nn.Module):
     def forward(self, logits, labels, weights, params):
 
         nll = self.criterion(logits, labels)*weights
-        nll = nll.sum()
+        nll = nll.mean()
         bb_log_prob = (self.alpha/2) * ((params[:self.D] - self.bb_loc)**2).sum()
         clf_log_prob = (self.beta/2) * (params[self.D:]**2).sum()
-        print(f'bblp: {bb_log_prob}, clf_lp: {clf_log_prob}')
+        
         loss = nll + bb_log_prob + clf_log_prob
-        return loss
+        return loss, nll, bb_log_prob, clf_log_prob
     
 class WeightedBCELoss(torch.nn.Module,):
     def __init__(self, criterion=torch.nn.BCELoss(reduction='none')):

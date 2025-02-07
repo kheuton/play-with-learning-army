@@ -1,4 +1,5 @@
 data/
+wandb/
 
 config/data_config.yaml
 

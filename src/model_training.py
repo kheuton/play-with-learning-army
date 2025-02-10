@@ -1,10 +1,10 @@
-from data_loader import load_dataset, to_device
+from data_loader import load_datasets, to_device
 from embedder_registry import initialize_embedding, initialize_criteria_embedding, initialize_combiner
 from domain_models import initialize_domain_models
 from loss_opt import initialize_loss, initialize_optimizer
 import torch
 import yaml
-
+import wandb
 import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, roc_auc_score, average_precision_score
@@ -21,28 +21,33 @@ def run_experiment(hyper_config, problem_config, use_wandb=False):
 
     set_seed(hyper_config['seed'])
 
-    if use_wandb:
-        import wandb
-        wandb.init(project=hyper_config['wandb_project'], config=hyper_config, name=hyper_config['experiment_name'])
+    if 'use_wandb' in hyper_config:
+        use_wandb = hyper_config['use_wandb']
+    else:
+        use_wandb = True
     
     # Load data
-    train_dataset, val_dataset, test_dataset = load_dataset(hyper_config,
-                                                            train=True, val=True, test=True)
+    train_datasets, val_datasets = load_datasets(hyper_config,
+                                                 train=True, val=True, test=False)
     
-    embedder = initialize_embedding(hyper_config, train_dataset)
-    criteria_embedder = initialize_criteria_embedding(hyper_config)
-    criteria_combiner = initialize_combiner(hyper_config)
+    for fold, (train_dataset, val_dataset) in enumerate(zip(train_datasets, val_datasets)):
+        if use_wandb:
+            wandb.init(project=hyper_config['wandb_project'], config=hyper_config, name=hyper_config['experiment_name'].format(fold=fold))
+    
+        embedder = initialize_embedding(hyper_config, train_dataset)
+        criteria_embedder = initialize_criteria_embedding(hyper_config)
+        criteria_combiner = initialize_combiner(hyper_config)
 
-    domain_model_dict = initialize_domain_models(embedder.embedding_size,  embedder.device, problem_config)
-    loss_func = initialize_loss(hyper_config, embedder)
-    optimizer = initialize_optimizer(hyper_config, domain_model_dict, embedder)
+        domain_model_dict = initialize_domain_models(embedder.embedding_size,  embedder.device, problem_config)
+        loss_func = initialize_loss(hyper_config, embedder)
+        optimizer = initialize_optimizer(hyper_config, domain_model_dict, embedder)
 
-    model = train_model(train_dataset, val_dataset,
-                        embedder, criteria_embedder, criteria_combiner,
-                        domain_model_dict,
-                        loss_func,
-                        optimizer,
-                        hyper_config, problem_config, use_wandb)
+        model = train_model(fold, train_dataset, val_dataset,
+                            embedder, criteria_embedder, criteria_combiner,
+                            domain_model_dict,
+                            loss_func,
+                            optimizer,
+                            hyper_config, problem_config, use_wandb)
     
     return
 
@@ -75,7 +80,11 @@ def evaluate_model(dataloader, hyper_config, embed_func, criteria_embed_func, cr
         all_labels = torch.tensor(np.array(all_labels, dtype=int).flatten(), dtype=torch.float32)
         all_weights = torch.tensor(np.array(all_weights), dtype=torch.float32)
         
-        params = torch.nn.utils.parameters_to_vector(embed_func.model.parameters()).detach()
+
+        if hyper_config['finetune']:
+            params = torch.nn.utils.parameters_to_vector(embed_func.model.parameters()).detach()
+        else:
+            params = torch.tensor([]).to(embed_func.device)
         for model in domain_model_dict.values():
             params = torch.cat([params, torch.nn.utils.parameters_to_vector(model.parameters()).detach()])
 
@@ -107,7 +116,7 @@ def evaluate_model(dataloader, hyper_config, embed_func, criteria_embed_func, cr
     }
     return nll, metrics
 
-def train_model(train_dataset, val_dataset,
+def train_model(fold, train_dataset, val_dataset,
                 embed_func, criteria_embed_func, criteria_combiner,
                 domain_model_dict,
                 loss_func,
@@ -119,6 +128,8 @@ def train_model(train_dataset, val_dataset,
 
     num_domains = problem_config["num_domains"]
     batch_size = hyper_config["batch_size"]
+    if batch_size == 'N':
+        batch_size = len(train_dataset[0])
     best_val_nll = float('inf')
     
     train_metrics = []
@@ -240,19 +251,19 @@ def train_model(train_dataset, val_dataset,
             save_dict = {'domain_model_dict': domain_model_dict}
             if hyper_config['finetune']:
                 save_dict['embed_func'] = embed_func
-            torch.save(save_dict, hyper_config['best_model_path'])
+            torch.save(save_dict, hyper_config['best_model_path'].format(fold=fold))
         
         print(f'Epoch {epoch} loss: {epoch_loss}')
     
     train_df = pd.DataFrame(train_metrics, columns=['epoch', 'loss', 'nll', 'bb_log_prob',
                                                     'clf_log_prob', 'accuracy', 'precision',
                                                       'recall', 'auroc', 'auprc', 'unweighted_nll'])
-    train_df.to_csv(hyper_config['train_metrics_path'], index=False)
+    train_df.to_csv(hyper_config['train_metrics_path'].format(fold=fold), index=False)
     
     val_df = pd.DataFrame(val_metrics_list, columns=['epoch', 'loss', 'nll',
                                                       'bb_log_prob', 'clf_log_prob', 'accuracy',
                                                         'precision', 'recall', 'auroc', 'auprc', 'unweighted_nll'])
-    val_df.to_csv(hyper_config['val_metrics_path'], index=False)
+    val_df.to_csv(hyper_config['val_metrics_path'].format(fold=fold), index=False)
 
     return
 
@@ -262,10 +273,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run an experiment')
     parser.add_argument('--hyper_config', type=str, help='Path to hyperparameter configuration file')
     parser.add_argument('--problem_config', type=str, help='Path to problem configuration file')
-    parser.add_argument('--use_wandb', action='store_true', help='If set, log metrics to Weights and Biases')
     args = parser.parse_args()
     
     hyper_config = yaml.load(open(args.hyper_config), Loader=yaml.FullLoader)
     problem_config = yaml.load(open(args.problem_config), Loader=yaml.FullLoader)
 
-    run_experiment(hyper_config, problem_config, use_wandb=args.use_wandb)
+    run_experiment(hyper_config, problem_config)

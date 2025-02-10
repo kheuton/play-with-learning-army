@@ -8,38 +8,37 @@ FIXED_PARAMS = {
     'embedder': 'bert',
     'criteria_embedder': 'identity',
     'combiner': 'concatenate',
-    'opt_weight_decay': 0,
     'device': 'cuda',
-    'finetune': True,
-    'wandb_project': 'sensemaking_bert_finetune',
+    'finetune': False,
+    'wandb_project': 'sensemaking_bert_frozen',
     'seed': 360,
     'num_epochs': 1000,
-    'loss': 'l2sp',
-    'num_folds': 1,
+    'loss': 'bce',
+    'use_wandb': False,
+    'num_folds': 5
 }
 
+# Base output directory
+BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/bertfrozen'
+
 # Variable parameters
-LEARNING_RATES = [0.0000005, 0.0000001, 0.00000001]
-ALPHAS = [0.1, 0.01, 0.001, 0.0001, 1e-5, 0]
-BETAS = [0.1, 0.01, 0.001, 0.0001, 1e-5, 0]
-BATCH_SIZES = [32]
+LEARNING_RATES = [0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000005, 0.000001]
+WEIGHT_DECAYS = [0.1, 0.01, 0.001, 0.0001, 1e-5, 0]
+BATCH_SIZES = [32, 65, 128, 'N']
 DATA_DIRS = [
-    '/cluster/home/kheuto01/code/play-with-learning-army/data/clean/test_15',
-    '/cluster/home/kheuto01/code/play-with-learning-army/data/clean/test_20'
+    '/cluster/home/kheuto01/code/play-with-learning-army/data/clean/test_15/fold_{fold}/',
+    '/cluster/home/kheuto01/code/play-with-learning-army/data/clean/test_20/fold_{fold}'
 ]
 
-# Base output directory
-BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/bertfinetune'
-
-def create_experiment_name(lr, alpha, beta, data_dir):
+def create_experiment_name(lr, wd, batch_size, data_dir):
     """Create experiment name from parameters including the test number."""
     test_num = '15' if 'test_15' in data_dir else '20'
-    return f'test{test_num}_lr{lr}_alpha{alpha}_beta{beta}'
+    return f'test{test_num}_lr{lr}_wd{wd}_bs{batch_size}'
 
-def create_config(lr, alpha, beta, batch_size, data_dir):
+def create_config(lr, weight_decay, batch_size, data_dir):
     """Create a single config dictionary."""
     # Create experiment name
-    experiment_name = create_experiment_name(lr, alpha, beta, data_dir)
+    experiment_name = create_experiment_name(lr, weight_decay, batch_size, data_dir)
     
     # Create output directory path
     data_test_num = 'test_15' if 'test_15' in data_dir else 'test_20'
@@ -51,8 +50,7 @@ def create_config(lr, alpha, beta, batch_size, data_dir):
     # Add variable parameters
     config.update({
         'learning_rate': lr,
-        'alpha': alpha,
-        'beta': beta,
+        'opt_weight_decay': weight_decay,
         'batch_size': batch_size,
         'experiment_name': experiment_name,
         
@@ -65,9 +63,9 @@ def create_config(lr, alpha, beta, batch_size, data_dir):
         'test_y_file': os.path.join(data_dir, 'test_y.csv'),
         
         # Metrics and model paths
-        'train_metrics_path': os.path.join(output_dir, 'train_metrics.csv'),
-        'val_metrics_path': os.path.join(output_dir, 'val_metrics.csv'),
-        'best_model_path': os.path.join(output_dir, 'best_model.pth')
+        'train_metrics_path': os.path.join(output_dir, 'train_metrics_{fold}.csv'),
+        'val_metrics_path': os.path.join(output_dir, 'val_metrics_{fold}.csv'),
+        'best_model_path': os.path.join(output_dir, 'best_model_{fold}.pth')
     })
     
     return config, output_dir
@@ -76,15 +74,14 @@ def main():
     # Generate all combinations of parameters
     combinations = itertools.product(
         LEARNING_RATES,
-        ALPHAS,
-        BETAS,
+        WEIGHT_DECAYS,
         BATCH_SIZES,
         DATA_DIRS
     )
     
     # Create configs for each combination
-    for lr, alpha, beta, batch_size, data_dir in combinations:
-        config, output_dir = create_config(lr, alpha, beta, batch_size, data_dir)
+    for lr, weight_decay, batch_size, data_dir in combinations:
+        config, output_dir = create_config(lr, weight_decay, batch_size, data_dir)
         
         # Create output directory
         os.makedirs(output_dir, exist_ok=True)

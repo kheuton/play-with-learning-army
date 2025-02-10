@@ -1,0 +1,22 @@
+raw_paths:
+  - data/problem1.csv
+  - data/problem2.csv
+  - data/problem3.csv
+  - data/problem4.csv
+label_col: Feature Vectors
+response_col: Text
+student_id_col: student_id
+num_test_students: 20
+num_val_students: 15
+seed: 123
+num_folds: 5
+folded_train_x_file: data/clean/test_{num_test_students}/fold_{fold}/train_x.csv
+folded_train_y_file: data/clean/test_{num_test_students}/fold_{fold}/train_y.csv
+folded_val_x_file: data/clean/test_{num_test_students}/fold_{fold}/val_x.csv
+folded_val_y_file: data/clean/test_{num_test_students}/fold_{fold}/val_y.csv
+test_x_file: data/clean/test_{num_test_students}/test_x.csv
+test_y_file: data/clean/test_{num_test_students}/test_y.csv
+val_x_file: data/clean/test_{num_test_students}/val_x.csv
+val_y_file: data/clean/test_{num_test_students}/val_y.csv
+train_x_file: data/clean/test_{num_test_students}/train_x.csv
+train_y_file: data/clean/test_{num_test_students}/train_y.csv

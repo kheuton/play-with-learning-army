@@ -17,7 +17,6 @@ class BertEmbedder(BaseEstimator, TransformerMixin):
 
     def forward(self, X):
         
-        
         model_output = self.model(**X)
 
         # We typically use the embeddings from the [CLS] token (first token)

@@ -1,23 +1,23 @@
 import numpy as np
 import torch
+from sklearn.feature_extraction.text import CountVectorizer
 
+def initialize_bow(train_dataset):
+    return BagOfWordsEmbedder(train_dataset)
 
-class BagOfWords(torch.nn.Module):
-    def __init__(self, train_dataset, hyper_config):
-        super(BagOfWords, self).__init__()
-        self.vocab = self.build_vocab(train_dataset)
+class BagOfWordsEmbedder(torch.nn.Module):
+    def __init__(self, train_dataset):
+        self.vectorizer = CountVectorizer()
+        x,y,problem_id,student_id = train_dataset
+        self.vectorizer.fit_transform(x)
+        vocab = self.vectorizer.vocabulary_
+        vocab_size = len(vocab)
+        self.embedding_size = vocab_size + 1
+        self.device = 'cpu'
 
-    def build_vocab(self, train_dataset):
-        vocab = set()
-        for x in train_dataset:
-            vocab.update(x)
-        return vocab
-    
-    def forward(self, x):
-        # x is a list of words
-        # return the bag-of-words embedding of x
-        embedding = torch.zeros(len(self.vocab))
-        for word in x:
-            embedding[self.vocab.index(word)] += 1
-        return embedding
-    
+    def preprocess_data(self, dataset, hyper_config):
+        x, y, problem_id, student_id = dataset
+        return torch.tensor(self.vectorizer.transform([x]).todense(), dtype=torch.float32), torch.tensor(y).to(self.device), problem_id.to(self.device), student_id.to(self.device)
+
+    def forward(self, texts):
+        return texts

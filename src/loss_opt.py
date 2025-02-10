@@ -28,9 +28,12 @@ class WeightedBCELoss(torch.nn.Module,):
         self.criterion = criterion
 
     def forward(self, logits, labels, weights, params):
-        nll = self.criterion(logits, labels)*weights
-        nll = nll.sum()
-        return nll
+        unweighted_nll = self.criterion(logits, labels)
+        nll = unweighted_nll*weights
+        nll = nll.mean()
+        unweighted_nll = unweighted_nll.mean()
+        # return 0 tensors for the other loss components
+        return nll, torch.tensor(0), torch.tensor(0), torch.tensor(0), unweighted_nll
 
 def initialize_loss(hyper_config, embedder):
 

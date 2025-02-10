@@ -1,8 +1,8 @@
-from bag_of_words import BagOfWords
+from bag_of_words import initialize_bow
 from bert import initialize_bert
 import torch
 
-REGISERTED_EMBEDDERS = {'BagOfWords':  BagOfWords,
+REGISERTED_EMBEDDERS = {'bow':  initialize_bow,
                         'bert': initialize_bert}
 
 

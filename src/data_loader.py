@@ -23,6 +23,7 @@ def read_raw(file_path, data_config, problem_id):
 
     return x, y, problem_ids, student_ids
 
+
 def to_device(dataset, device):
     """
     Move a dataset to torch tensors and a device
@@ -37,30 +38,45 @@ def to_device(dataset, device):
     problem_id = torch.tensor(problem_id.values).to(device)
     student_id = torch.tensor(student_id.values).to(device)
 
-
     return torch.utils.data.TensorDataset(x, y, problem_id, student_id)
 
-def load_dataset(hyper_config, train=False, val=False, test=False):
+
+def load_datasets(hyper_config, train=False, val=False, test=False):
     
     outputs = ()
 
     if train:
-        processed_train_features, processed_train_labels = load_processed(hyper_config['train_x_file'], hyper_config['train_y_file'])
-        train_dataset = make_dataset(processed_train_features, processed_train_labels)
-
-        outputs += (train_dataset,)
-
+        train_datasets = []
     if val:
-        processed_val_features, processed_val_labels = load_processed(hyper_config['val_x_file'], hyper_config['val_y_file'])
-        val_dataset = make_dataset(processed_val_features, processed_val_labels)
-
-        outputs += (val_dataset,)
-
+        val_datasets = []
     if test:
-        processed_test_features, processed_test_labels = load_processed(hyper_config['test_x_file'], hyper_config['test_y_file'])
-        test_dataset = make_dataset(processed_test_features, processed_test_labels)
+        test_datasets = []
 
-        outputs += (test_dataset,)
+    for fold in range(hyper_config['num_folds']):
+        if train:
+            processed_train_features, processed_train_labels = load_processed(hyper_config['train_x_file'].format(fold=fold),
+                                                                              hyper_config['train_y_file'].format(fold=fold))
+            train_dataset = make_dataset(processed_train_features, processed_train_labels)
+            train_datasets.append(train_dataset)
+
+        if val:
+            processed_val_features, processed_val_labels = load_processed(hyper_config['val_x_file'].format(fold=fold),
+                                                                          hyper_config['val_y_file'].format(fold=fold))
+            val_dataset = make_dataset(processed_val_features, processed_val_labels)
+            val_datasets.append(val_dataset)
+
+        if test:
+            processed_test_features, processed_test_labels = load_processed(hyper_config['test_x_file'].format(fold=fold), 
+                                                                            hyper_config['test_y_file'].format(fold=fold))
+            test_dataset = make_dataset(processed_test_features, processed_test_labels)
+            test_datasets.append(test_dataset)
+
+    if train:
+        outputs += (train_datasets,)
+    if val:
+        outputs += (val_datasets,)
+    if test:
+        outputs += (test_datasets,)
 
     return outputs
 

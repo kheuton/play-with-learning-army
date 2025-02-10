@@ -51,24 +51,39 @@ def submit_job(problem_config, hyper_config):
 def main():
     parser = argparse.ArgumentParser(description='Submit Slurm jobs for all config combinations')
     parser.add_argument('--problem_config', required=True,
-                      help='Path to the problem config file')
+                        help='Path to the problem config file')
     parser.add_argument('--base_dir', required=True,
-                      help='Base directory containing the generated hyper configs')
+                        help='Base directory containing the generated hyper configs')
+    parser.add_argument('--dryrun', action='store_true',
+                        help='If set, only report the number of jobs that would be submitted without submitting them')
     args = parser.parse_args()
 
     # Verify problem config exists
     if not os.path.exists(args.problem_config):
         raise FileNotFoundError(f"Problem config not found: {args.problem_config}")
-
+    
     # Find all config files
     config_pattern = os.path.join(args.base_dir, "**/config.yaml")
     config_files = glob.glob(config_pattern, recursive=True)
 
+    # Exclude config files if the directory also contains a best_model.pth
+    filtered_config_files = []
+    for config_file in config_files:
+        dir_path = os.path.dirname(config_file)
+        if not os.path.exists(os.path.join(dir_path, "best_model.pth")):
+            filtered_config_files.append(config_file)
+
+    config_files = filtered_config_files
+
     if not config_files:
-        print(f"No config files found in {args.base_dir}")
+        print(f"No config files found in {args.base_dir} or all directories contain best_model.pth")
         return
 
     print(f"Found {len(config_files)} config files")
+
+    if args.dryrun:
+        print(f"Dry run: {len(config_files)} jobs would be submitted")
+        return
     
     # Submit a job for each config file
     for config_file in config_files:

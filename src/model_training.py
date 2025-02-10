@@ -47,7 +47,7 @@ def run_experiment(hyper_config, problem_config):
     return
 
 def evaluate_model(dataloader, hyper_config, embed_func, criteria_embed_func, criteria_combiner, domain_model_dict, loss_func, problem_config, num_domains):
-    total_loss, total_nll, total_bb_log_prob, total_clf_log_prob = 0, 0, 0, 0
+    total_loss, total_nll, total_bb_log_prob, total_clf_log_prob, total_unweighted_nll = 0, 0, 0, 0, 0
     all_preds, all_labels, all_weights = [], [], []
     
     with torch.no_grad():
@@ -81,12 +81,13 @@ def evaluate_model(dataloader, hyper_config, embed_func, criteria_embed_func, cr
 
         #print(all_preds)
         #print(all_labels)
-        loss, nll, bb_log_prob, clf_log_prob = loss_func(all_preds, all_labels, all_weights, params)
+        loss, nll, bb_log_prob, clf_log_prob, unweighted_nll = loss_func(all_preds, all_labels, all_weights, params)
 
         total_loss += loss.item()
         total_nll += nll.item()
         total_bb_log_prob += bb_log_prob.item()
         total_clf_log_prob += clf_log_prob.item()
+        total_unweighted_nll += unweighted_nll.item()
 
     all_preds = all_preds.detach().cpu().numpy()
     all_labels = all_labels.detach().cpu().numpy()
@@ -101,7 +102,8 @@ def evaluate_model(dataloader, hyper_config, embed_func, criteria_embed_func, cr
         'val_precision': precision_recall_fscore_support(all_labels, threshold_preds, average='macro')[0],
         'val_recall': precision_recall_fscore_support(all_labels, threshold_preds, average='macro')[1],
         'val_auroc': roc_auc_score(all_labels, all_preds),
-        'val_auprc': average_precision_score(all_labels, all_preds)
+        'val_auprc': average_precision_score(all_labels, all_preds),
+        'val_unweighted_nll': total_unweighted_nll
     }
     return nll, metrics
 
@@ -143,6 +145,7 @@ def train_model(train_dataset, val_dataset,
         epoch_nll = 0
         epoch_bb_log_prob = 0
         epoch_clf_log_prob = 0
+        epoch_unweighted_nll = 0
 
         all_preds, all_labels = [], []
         
@@ -183,7 +186,7 @@ def train_model(train_dataset, val_dataset,
             for model in domain_model_dict.values():
                 params = torch.cat([params, torch.nn.utils.parameters_to_vector(model.parameters()).detach()])
 
-            batch_loss, batch_nll, batch_bb_log_prob, batch_clf_log_prob = loss_func(torch.squeeze(all_batch_preds), all_batch_labels, all_batch_weights, params)
+            batch_loss, batch_nll, batch_bb_log_prob, batch_clf_log_prob, batch_unweighted_nll = loss_func(torch.squeeze(all_batch_preds), all_batch_labels, all_batch_weights, params)
             
             batch_loss.backward()
             optimizer.step()
@@ -191,6 +194,7 @@ def train_model(train_dataset, val_dataset,
             epoch_nll += batch_nll.item()
             epoch_bb_log_prob += batch_bb_log_prob.item()
             epoch_clf_log_prob += batch_clf_log_prob.item()
+            epoch_unweighted_nll += batch_unweighted_nll.item()
 
             all_preds.append(all_batch_preds.detach().cpu().numpy())
             all_labels.append(all_batch_labels.detach().cpu().numpy())
@@ -206,7 +210,7 @@ def train_model(train_dataset, val_dataset,
         auroc = roc_auc_score(all_labels, all_preds)  # Keep raw values for AUROC
         auprc = average_precision_score(all_labels, all_preds)  # Keep raw values for AUPRC
         
-        train_metrics.append([epoch, epoch_loss, epoch_nll, epoch_bb_log_prob, epoch_clf_log_prob, train_acc, precision, recall, auroc, auprc])
+        train_metrics.append([epoch, epoch_loss, epoch_nll, epoch_bb_log_prob, epoch_clf_log_prob, train_acc, precision, recall, auroc, auprc, epoch_unweighted_nll])
         
         wandb.log({
             'train_loss': epoch_loss,
@@ -217,7 +221,8 @@ def train_model(train_dataset, val_dataset,
             'train_precision': precision,
             'train_recall': recall,
             'train_auroc': auroc,
-            'train_auprc': auprc
+            'train_auprc': auprc,
+            'train_unweighted_nll': epoch_unweighted_nll
         })
         
         val_nll, val_metrics = evaluate_model(val_dataloader,hyper_config, embed_func, criteria_embed_func, criteria_combiner, domain_model_dict, loss_func, problem_config, num_domains)
@@ -235,12 +240,12 @@ def train_model(train_dataset, val_dataset,
     
     train_df = pd.DataFrame(train_metrics, columns=['epoch', 'loss', 'nll', 'bb_log_prob',
                                                     'clf_log_prob', 'accuracy', 'precision',
-                                                      'recall', 'auroc', 'auprc'])
+                                                      'recall', 'auroc', 'auprc', 'unweighted_nll'])
     train_df.to_csv(hyper_config['train_metrics_path'], index=False)
     
     val_df = pd.DataFrame(val_metrics_list, columns=['epoch', 'loss', 'nll',
                                                       'bb_log_prob', 'clf_log_prob', 'accuracy',
-                                                        'precision', 'recall', 'auroc', 'auprc'])
+                                                        'precision', 'recall', 'auroc', 'auprc', 'unweighted_nll'])
     val_df.to_csv(hyper_config['val_metrics_path'], index=False)
 
     return

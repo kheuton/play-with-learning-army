@@ -4,7 +4,7 @@ from domain_models import initialize_domain_models
 from loss_opt import initialize_loss, initialize_optimizer
 import torch
 import yaml
-import wandb
+
 import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, roc_auc_score, average_precision_score
@@ -14,13 +14,16 @@ def set_seed(seed):
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-def run_experiment(hyper_config, problem_config):
+def run_experiment(hyper_config, problem_config, use_wandb=False):
     """
     Run a single experiment
     """
 
     set_seed(hyper_config['seed'])
-    wandb.init(project=hyper_config['wandb_project'], config=hyper_config, name=hyper_config['experiment_name'])
+
+    if use_wandb:
+        import wandb
+        wandb.init(project=hyper_config['wandb_project'], config=hyper_config, name=hyper_config['experiment_name'])
     
     # Load data
     train_dataset, val_dataset, test_dataset = load_dataset(hyper_config,
@@ -31,19 +34,16 @@ def run_experiment(hyper_config, problem_config):
     criteria_combiner = initialize_combiner(hyper_config)
 
     domain_model_dict = initialize_domain_models(embedder.embedding_size,  embedder.device, problem_config)
-    print(f'Preloss')
     loss_func = initialize_loss(hyper_config, embedder)
-    print(f'Post loss')
     optimizer = initialize_optimizer(hyper_config, domain_model_dict, embedder)
-    print(f'Post optimizer')
+
     model = train_model(train_dataset, val_dataset,
                         embedder, criteria_embedder, criteria_combiner,
                         domain_model_dict,
                         loss_func,
                         optimizer,
-                        hyper_config, problem_config)
+                        hyper_config, problem_config, use_wandb)
     
-    #report_model(model, val_dataset, test_dataset, hyper_config)
     return
 
 def evaluate_model(dataloader, hyper_config, embed_func, criteria_embed_func, criteria_combiner, domain_model_dict, loss_func, problem_config, num_domains):
@@ -112,7 +112,7 @@ def train_model(train_dataset, val_dataset,
                 domain_model_dict,
                 loss_func,
                 optimizer,
-                hyper_config, problem_config):
+                hyper_config, problem_config, use_wandb):
     """
     Train a model
     """
@@ -182,7 +182,11 @@ def train_model(train_dataset, val_dataset,
             all_batch_weights = torch.tensor(all_batch_weights).to(embed_func.device)
             
             # combine parameters in embedder and all domain models
-            params = torch.nn.utils.parameters_to_vector(embed_func.model.parameters()).detach()
+            if hyper_config['finetune']:
+                params = torch.nn.utils.parameters_to_vector(embed_func.model.parameters()).detach()
+            else:
+                params = torch.tensor([]).to(embed_func.device)
+                
             for model in domain_model_dict.values():
                 params = torch.cat([params, torch.nn.utils.parameters_to_vector(model.parameters()).detach()])
 
@@ -212,22 +216,24 @@ def train_model(train_dataset, val_dataset,
         
         train_metrics.append([epoch, epoch_loss, epoch_nll, epoch_bb_log_prob, epoch_clf_log_prob, train_acc, precision, recall, auroc, auprc, epoch_unweighted_nll])
         
-        wandb.log({
-            'train_loss': epoch_loss,
-            'train_nll': epoch_nll,
-            'train_bb_log_prob': epoch_bb_log_prob,
-            'train_clf_log_prob': epoch_clf_log_prob,
-            'train_accuracy': train_acc,
-            'train_precision': precision,
-            'train_recall': recall,
-            'train_auroc': auroc,
-            'train_auprc': auprc,
-            'train_unweighted_nll': epoch_unweighted_nll
-        })
+        
         
         val_nll, val_metrics = evaluate_model(val_dataloader,hyper_config, embed_func, criteria_embed_func, criteria_combiner, domain_model_dict, loss_func, problem_config, num_domains)
         val_metrics_list.append([epoch] + list(val_metrics.values()))
-        wandb.log(val_metrics)
+        if use_wandb:
+            wandb.log({
+                'train_loss': epoch_loss,
+                'train_nll': epoch_nll,
+                'train_bb_log_prob': epoch_bb_log_prob,
+                'train_clf_log_prob': epoch_clf_log_prob,
+                'train_accuracy': train_acc,
+                'train_precision': precision,
+                'train_recall': recall,
+                'train_auroc': auroc,
+                'train_auprc': auprc,
+                'train_unweighted_nll': epoch_unweighted_nll,
+                **val_metrics
+            })
         
         if val_nll < best_val_nll:
             best_val_nll = val_nll
@@ -251,14 +257,15 @@ def train_model(train_dataset, val_dataset,
     return
 
 if __name__ == '__main__':
-    print('ooops')
+
     import argparse
     parser = argparse.ArgumentParser(description='Run an experiment')
     parser.add_argument('--hyper_config', type=str, help='Path to hyperparameter configuration file')
     parser.add_argument('--problem_config', type=str, help='Path to problem configuration file')
+    parser.add_argument('--use_wandb', action='store_true', help='If set, log metrics to Weights and Biases')
     args = parser.parse_args()
     
     hyper_config = yaml.load(open(args.hyper_config), Loader=yaml.FullLoader)
     problem_config = yaml.load(open(args.problem_config), Loader=yaml.FullLoader)
 
-    run_experiment(hyper_config, problem_config)
+    run_experiment(hyper_config, problem_config, use_wandb=args.use_wandb)

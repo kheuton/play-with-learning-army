@@ -65,7 +65,7 @@ def create_config(lr, weight_decay, batch_size, data_dir):
         # Metrics and model paths
         'train_metrics_path': os.path.join(output_dir, 'train_metrics_{fold}.csv'),
         'val_metrics_path': os.path.join(output_dir, 'val_metrics_{fold}.csv'),
-        'best_model_path': os.path.join(output_dir, 'best_model_{fold}.pth')
+        'final_model_path': os.path.join(output_dir, 'final_model_{fold}.pth')
     })
     
     return config, output_dir

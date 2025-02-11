@@ -19,6 +19,6 @@ wandb_project: example_debug
 experiment_name: lr0.001_wd0.01
 train_metrics_path: train_metrics.csv
 val_metrics_path: val_metrics.csv
-best_model_path: best_model.pth
+final_model_path: final_model.pth
 loss: l2sp
 seed: 360

@@ -8,13 +8,13 @@ from pathlib import Path
 def create_slurm_script(problem_config, hyper_config):
     """Create the content of the Slurm script."""
     return f"""#!/bin/bash
-#SBATCH --job-name=bow
+#SBATCH --job-name=finetune
 #SBATCH -o /cluster/tufts/hugheslab/kheuto01/slurmlog/out/log_%j.out       # Write stdout to file named log_JOBIDNUM.out in log dir
 #SBATCH -e /cluster/tufts/hugheslab/kheuto01/slurmlog/err/log_%j.err       # Write stderr to file named log_JOBIDNUM.err in log dir
-#SBATCH --time=3:00:00
-#SBATCH --mem=16GB
-##SBATCH --gres=gpu:1
-#SBATCH --partition=batch,hugheslab
+#SBATCH --time=6:00:00
+#SBATCH --mem=32GB
+#SBATCH --gres=gpu:1
+#SBATCH --partition=hugheslab,gpu,ccgpu
 #SBATCH -n 4
 #SBATCH -N 1
 #SBATCH --export=ALL

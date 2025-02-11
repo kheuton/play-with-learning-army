@@ -248,10 +248,6 @@ def train_model(fold, train_dataset, val_dataset,
         
         if val_nll < best_val_nll:
             best_val_nll = val_nll
-            save_dict = {'domain_model_dict': domain_model_dict}
-            if hyper_config['finetune']:
-                save_dict['embed_func'] = embed_func
-            torch.save(save_dict, hyper_config['best_model_path'].format(fold=fold))
         
         print(f'Epoch {epoch} loss: {epoch_loss}')
     
@@ -264,6 +260,11 @@ def train_model(fold, train_dataset, val_dataset,
                                                       'bb_log_prob', 'clf_log_prob', 'accuracy',
                                                         'precision', 'recall', 'auroc', 'auprc', 'unweighted_nll'])
     val_df.to_csv(hyper_config['val_metrics_path'].format(fold=fold), index=False)
+
+    save_dict = {'domain_model_dict': domain_model_dict}
+    if hyper_config['finetune']:
+        save_dict['embed_func'] = embed_func
+    torch.save(save_dict, hyper_config['best_model_path'].format(fold=fold))
 
     return
 

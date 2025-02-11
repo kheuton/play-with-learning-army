@@ -73,10 +73,13 @@ def data_split(x, y, problem_ids, student_ids, data_config):
     train = (x[train_indices], y[train_indices], problem_ids[train_indices], student_ids[train_indices])
     val = (x[val_indices], y[val_indices], problem_ids[val_indices], student_ids[val_indices])
     test = (x[test_indices], y[test_indices], problem_ids[test_indices], student_ids[test_indices])
+    retrain_indices = np.concatenate((train_indices, val_indices))
+    retrain = (x[retrain_indices], y[retrain_indices], problem_ids[retrain_indices], student_ids[retrain_indices])
 
     # concatenate problem_ids and student_ids to x then save x and y
     train_x = pd.concat((train[0], train[2], train[3]), axis=1)  
     val_x = pd.concat((val[0], val[2], val[3]), axis=1)  
+    rertain_x = pd.concat((retrain[0], retrain[2], retrain[3]), axis=1)
     test_x = pd.concat((test[0], test[2], test[3]), axis=1)  
 
     # save x and y
@@ -84,6 +87,8 @@ def data_split(x, y, problem_ids, student_ids, data_config):
     pd.DataFrame(train[1]).to_csv(data_config["train_y_file"].format(num_test_students=num_test_students), index=False)
     pd.DataFrame(val_x).to_csv(data_config["val_x_file"].format(num_test_students=num_test_students), index=False)
     pd.DataFrame(val[1]).to_csv(data_config["val_y_file"].format(num_test_students=num_test_students), index=False)
+    pd.DataFrame(rertain_x).to_csv(data_config["retrain_x_file"].format(num_test_students=num_test_students), index=False)
+    pd.DataFrame(retrain[1]).to_csv(data_config["retrain_y_file"].format(num_test_students=num_test_students), index=False)
     pd.DataFrame(test_x).to_csv(data_config["test_x_file"].format(num_test_students=num_test_students), index=False)
     pd.DataFrame(test[1]).to_csv(data_config["test_y_file"].format(num_test_students=num_test_students), index=False)
 

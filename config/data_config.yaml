@@ -6,8 +6,8 @@ raw_paths:
 label_col: Feature Vectors
 response_col: Text
 student_id_col: student_id
-num_test_students: 20
-num_val_students: 15
+num_test_students: 15
+num_val_students: 16
 seed: 123
 num_folds: 5
 folded_train_x_file: data/clean/test_{num_test_students}/fold_{fold}/train_x.csv
@@ -20,3 +20,5 @@ val_x_file: data/clean/test_{num_test_students}/val_x.csv
 val_y_file: data/clean/test_{num_test_students}/val_y.csv
 train_x_file: data/clean/test_{num_test_students}/train_x.csv
 train_y_file: data/clean/test_{num_test_students}/train_y.csv
+retrain_x_file: data/clean/test_{num_test_students}/retrain_x.csv
+retrain_y_file: data/clean/test_{num_test_students}/retrain_y.csv

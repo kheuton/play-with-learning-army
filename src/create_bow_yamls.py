@@ -19,7 +19,7 @@ FIXED_PARAMS = {
     'val_freq': 20,
 }
 # Base output directory
-BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/bow'
+BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/bow/20250212_fix_split/'
 
 
 # Variable parameters

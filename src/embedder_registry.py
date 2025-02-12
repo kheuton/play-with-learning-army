@@ -1,9 +1,10 @@
 from bag_of_words import initialize_bow
-from bert import initialize_bert
+from bert import initialize_bert, initialize_frozen_bert
 import torch
 
 REGISERTED_EMBEDDERS = {'bow':  initialize_bow,
-                        'bert': initialize_bert}
+                        'bert': initialize_bert,
+                        'frozen_bert': initialize_frozen_bert}
 
 
 

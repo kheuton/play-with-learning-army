@@ -10,16 +10,17 @@ FIXED_PARAMS = {
     'combiner': 'concatenate',
     'device': 'cuda',
     'finetune': False,
-    'wandb_project': 'sensemaking_bert_frozen',
+    'wandb_project': 'sensemaking_bert_frozen_eval',
     'seed': 360,
     'num_epochs': 1000,
     'loss': 'bce',
-    'use_wandb': False,
-    'num_folds': 5
+    'use_wandb': True,
+    'num_folds': 5,
+    'val_freq': 20,
 }
 
 # Base output directory
-BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/poopy_bertfrozen'
+BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/bertfrozen/fix_eval/'
 
 # Variable parameters
 LEARNING_RATES = [0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000005, 0.000001]

@@ -15,7 +15,8 @@ FIXED_PARAMS = {
     'num_epochs': 1000,
     'loss': 'bce',
     'use_wandb': False,
-    'num_folds': 5
+    'num_folds': 5,
+    'val_freq': 20,
 }
 # Base output directory
 BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/bow'

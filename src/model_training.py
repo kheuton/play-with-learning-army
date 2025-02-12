@@ -205,7 +205,7 @@ def train_model(fold, train_dataset, val_dataset,
                         c_embed = criteria_embed_func(torch.tensor([[c]]).to(embed_func.device))
                         final_representation = criteria_combiner(x_embed, c_embed)
                         y_pred = domain_model_dict[d](final_representation)
-                        weight = 1/num_criteria 
+                        weight = 1.0/num_criteria 
 
                         all_batch_preds.append(y_pred)
                         all_batch_labels.append(y[criteria_counter])
@@ -252,13 +252,19 @@ def train_model(fold, train_dataset, val_dataset,
         
         train_metrics.append([epoch, epoch_loss, epoch_nll, epoch_bb_log_prob, epoch_clf_log_prob, train_acc, precision, recall, auroc, auprc, epoch_unweighted_nll])
         
-        
-        with torch.no_grad():
-            embed_func.model.eval()
-            val_nll, val_metrics = evaluate_model(val_dataloader,hyper_config, embed_func, criteria_embed_func, criteria_combiner, domain_model_dict, loss_func, problem_config, num_domains)
-        embed_func.model.train()
-        
-        val_metrics_list.append([epoch] + list(val_metrics.values()))
+        # evaluate every val_freq
+        if epoch % hyper_config['val_freq'] == 0:
+            with torch.no_grad():
+                embed_func.model.eval()
+                val_nll, val_metrics = evaluate_model(val_dataloader,hyper_config, embed_func, criteria_embed_func, criteria_combiner, domain_model_dict, loss_func, problem_config, num_domains)
+            embed_func.model.train()
+
+            if val_nll < best_val_nll:
+                best_val_nll = val_nll
+            
+            val_metrics_list.append([epoch] + list(val_metrics.values()))
+        else:
+            val_metrics = {}
         if use_wandb:
             wandb.log({
                 'train_loss': epoch_loss,
@@ -274,8 +280,7 @@ def train_model(fold, train_dataset, val_dataset,
                 **val_metrics
             })
         
-        if val_nll < best_val_nll:
-            best_val_nll = val_nll
+
         
         print(f'Epoch {epoch} loss: {epoch_loss}')
     

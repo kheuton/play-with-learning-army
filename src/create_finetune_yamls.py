@@ -11,15 +11,16 @@ FIXED_PARAMS = {
     'opt_weight_decay': 0,
     'device': 'cuda',
     'finetune': True,
-    'wandb_project': 'sensemaking_bert_finetune',
+    'wandb_project': 'sensemaking_bert_finetune_eval',
     'seed': 360,
     'num_epochs': 1000,
     'loss': 'l2sp',
     'num_folds': 1,
+    'val_freq': 20,
 }
 
 # Variable parameters
-LEARNING_RATES = [0.0000005, 0.0000001, 0.00000001]
+LEARNING_RATES = [0.0000001,0.0000005, 0.00000001,0.00001, 0.000001,0.001, 0.0001, 0.1, 0.01,   ]
 ALPHAS = [0.1, 0.01, 0.001, 0.0001, 1e-5, 0]
 BETAS = [0.1, 0.01, 0.001, 0.0001, 1e-5, 0]
 BATCH_SIZES = [32]
@@ -29,7 +30,7 @@ DATA_DIRS = [
 ]
 
 # Base output directory
-BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/bertfinetune'
+BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/bertfinetune/20250212_fix_split/'
 
 def create_experiment_name(lr, alpha, beta, data_dir):
     """Create experiment name from parameters including the test number."""

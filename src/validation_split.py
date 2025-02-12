@@ -37,13 +37,30 @@ def data_split(x, y, problem_ids, student_ids, data_config):
     # create a new list of unique_student_ids with the test_student_ids at the start
     remaining_student_ids = np.setdiff1d(unique_student_ids, test_student_ids)
     unique_student_ids = np.concatenate((test_student_ids, remaining_student_ids))
-
-    val_student_ids = unique_student_ids[:num_val_students]
+    val_student_ids = unique_student_ids[num_test_students:num_test_students +num_val_students]
     train_student_ids = unique_student_ids[num_test_students + num_val_students:]
 
+    # assert that train val and test are all different and include all students
+    assert len(np.intersect1d(train_student_ids, val_student_ids)) == 0
+    assert len(np.intersect1d(train_student_ids, test_student_ids)) == 0
+    assert len(np.intersect1d(val_student_ids, test_student_ids)) == 0
+    assert len(np.union1d(np.union1d(train_student_ids, val_student_ids), test_student_ids)) == len(unique_student_ids)
+    
+    # Exclude test student ids from the list of unique student ids
+    remaining_student_ids = np.setdiff1d(unique_student_ids, test_student_ids)
+    
+    # Calculate the number of validation students per fold
+    num_val_students_per_fold = len(remaining_student_ids) // num_folds
+
     for fold in range(num_folds):
-        fold_val_student_ids = unique_student_ids[num_test_students + num_val_students * fold:num_test_students + num_val_students * (fold + 1)]
-        fold_train_student_ids = np.setdiff1d(unique_student_ids, np.concatenate((test_student_ids, fold_val_student_ids)))
+        fold_val_student_ids = remaining_student_ids[num_val_students_per_fold * fold:num_val_students_per_fold * (fold + 1)]
+        fold_train_student_ids = np.setdiff1d(remaining_student_ids, fold_val_student_ids)
+
+        # assert that train val and test are all different and include all students
+        assert len(np.intersect1d(fold_train_student_ids, fold_val_student_ids)) == 0
+        assert len(np.intersect1d(fold_train_student_ids, test_student_ids)) == 0
+        assert len(np.intersect1d(fold_val_student_ids, test_student_ids)) == 0
+        assert len(np.union1d(np.union1d(fold_train_student_ids, fold_val_student_ids), test_student_ids)) == len(unique_student_ids)
 
         fold_train_indices = np.where(np.isin(student_ids, fold_train_student_ids))[0]
         fold_val_indices = np.where(np.isin(student_ids, fold_val_student_ids))[0]

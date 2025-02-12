@@ -8,6 +8,7 @@ import wandb
 import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, roc_auc_score, average_precision_score
+import transformers
 
 def set_seed(seed):
     torch.manual_seed(seed)
@@ -58,8 +59,15 @@ def evaluate_model(dataloader, hyper_config, embed_func, criteria_embed_func, cr
     with torch.no_grad():
         for batch in dataloader:
             X_batch, y_batch, p_batch, s_batch = batch
-            for x, y, p, s in zip(X_batch, y_batch, p_batch, s_batch):
-                x, y, p, s = embed_func.preprocess_data((x, y, p, s), hyper_config)
+            for i in range(len(next(iter(X_batch.values())))):
+                if isinstance(X_batch, dict):
+                    x = {k: v[i].unsqueeze(0) for k, v in X_batch.items()}
+                else:
+                    x = X_batch[i]
+                y = y_batch[i]
+                p = p_batch[i]
+                s = s_batch[i]
+
                 x_embed = embed_func.forward(x)
                 
                 criteria_counter = 0
@@ -138,16 +146,27 @@ def train_model(fold, train_dataset, val_dataset,
     class CustomDataset(torch.utils.data.Dataset):
         def __init__(self, dataset):
             self.X, self.y, self.p, self.s = dataset
+            self.is_dict = isinstance(self.X, transformers.BatchEncoding)
 
         def __len__(self):
-            return len(self.X)
+            if self.is_dict:
+                return len(next(iter(self.X.values())))
+            else:
+                return len(self.X)
 
         def __getitem__(self, idx):
-            return self.X[idx], self.y[idx], self.p[idx], self.s[idx]
+            if self.is_dict:
+                return {k: v[idx] for k, v in self.X.items()}, self.y[idx], self.p[idx], self.s[idx]
+            else:
+                return self.X[idx], self.y[idx], self.p[idx], self.s[idx]
 
+    train_dataset = (train_dataset[0], torch.tensor(train_dataset[1]).to(embed_func.device), torch.tensor(train_dataset[2]).to(embed_func.device), torch.tensor(train_dataset[3]).to(embed_func.device))
+    train_dataset = embed_func.preprocess_data(train_dataset, hyper_config)
     train_dataset = CustomDataset(train_dataset)
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
+    val_dataset = (val_dataset[0], torch.tensor(val_dataset[1]).to(embed_func.device), torch.tensor(val_dataset[2]).to(embed_func.device), torch.tensor(val_dataset[3]).to(embed_func.device))
+    val_dataset = embed_func.preprocess_data(val_dataset, hyper_config)
     val_dataset = CustomDataset(val_dataset)
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
@@ -160,7 +179,6 @@ def train_model(fold, train_dataset, val_dataset,
 
         all_preds, all_labels = [], []
         
-        
         for batch in train_dataloader:
             optimizer.zero_grad()
             batch_loss = 0
@@ -168,8 +186,15 @@ def train_model(fold, train_dataset, val_dataset,
 
             all_batch_preds, all_batch_labels, all_batch_weights = [], [], []
 
-            for x, y, p, s in zip(X_batch, y_batch, p_batch, s_batch):
-                x, y, p, s = embed_func.preprocess_data((x, y, p, s), hyper_config)
+            for i in range(len(next(iter(X_batch.values())))):
+                if isinstance(X_batch, dict):
+                    x = {k: v[i].unsqueeze(0) for k, v in X_batch.items()}
+                else:
+                    x = X_batch[i]
+                y = y_batch[i]
+                p = p_batch[i]
+                s = s_batch[i]
+
                 x_embed = embed_func.forward(x)
                 
                 criteria_counter = 0
@@ -228,8 +253,11 @@ def train_model(fold, train_dataset, val_dataset,
         train_metrics.append([epoch, epoch_loss, epoch_nll, epoch_bb_log_prob, epoch_clf_log_prob, train_acc, precision, recall, auroc, auprc, epoch_unweighted_nll])
         
         
+        with torch.no_grad():
+            embed_func.model.eval()
+            val_nll, val_metrics = evaluate_model(val_dataloader,hyper_config, embed_func, criteria_embed_func, criteria_combiner, domain_model_dict, loss_func, problem_config, num_domains)
+        embed_func.model.train()
         
-        val_nll, val_metrics = evaluate_model(val_dataloader,hyper_config, embed_func, criteria_embed_func, criteria_combiner, domain_model_dict, loss_func, problem_config, num_domains)
         val_metrics_list.append([epoch] + list(val_metrics.values()))
         if use_wandb:
             wandb.log({
@@ -264,7 +292,7 @@ def train_model(fold, train_dataset, val_dataset,
     save_dict = {'domain_model_dict': domain_model_dict}
     if hyper_config['finetune']:
         save_dict['embed_func'] = embed_func
-    torch.save(save_dict, hyper_config['best_model_path'].format(fold=fold))
+    torch.save(save_dict, hyper_config['final_model_path'].format(fold=fold))
 
     return
 

@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from sklearn.feature_extraction.text import CountVectorizer
 
-def initialize_bow(train_dataset):
+def initialize_bow(train_dataset, hyper_config):
     return BagOfWordsEmbedder(train_dataset)
 
 class BagOfWordsEmbedder(torch.nn.Module):

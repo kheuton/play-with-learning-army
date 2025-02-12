@@ -13,6 +13,7 @@ opt_weight_decay: 0
 learning_rate: 0.001
 batch_size: 32
 num_epochs: 10
+num_folds: 1
 device: cuda
 finetune: True
 wandb_project: example_debug

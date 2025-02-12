@@ -2,13 +2,16 @@ from transformers import BertModel, BertTokenizer
 from sklearn.base import TransformerMixin, BaseEstimator
 import torch
 
-def initialize_bert(train_dataset):
-    return BertEmbedder()
+def initialize_bert(train_dataset, hyper_config):
+    return BertEmbedder(finetune=hyper_config['finetune'], device=hyper_config['device'])
 
 class BertEmbedder(BaseEstimator, TransformerMixin):
-    def __init__(self, model_name='bert-base-uncased', max_length=512, device=None):
+    def __init__(self, model_name='bert-base-uncased', max_length=512, device=None, finetune=True):
         self.tokenizer = BertTokenizer.from_pretrained(model_name)
         self.model = BertModel.from_pretrained(model_name)
+        if not finetune:
+            for param in self.model.parameters():
+                param.requires_grad = False
         self.max_length = max_length
         self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
         self.model_name = model_name

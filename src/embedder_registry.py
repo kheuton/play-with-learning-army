@@ -9,7 +9,7 @@ REGISERTED_EMBEDDERS = {'bow':  initialize_bow,
 
 def initialize_embedding(hyper_config, train_dataset):
     embedder = REGISERTED_EMBEDDERS[hyper_config['embedder']]
-    return embedder(train_dataset)
+    return embedder(train_dataset, hyper_config)
 
 
 def identity_criteria_embedder(criteria):

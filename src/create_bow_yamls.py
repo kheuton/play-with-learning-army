@@ -16,7 +16,7 @@ FIXED_PARAMS = {
     'loss': 'bce',
     'use_wandb': False,
     'num_folds': 5,
-    'val_freq': 20,
+    'val_freq': 1,
 }
 # Base output directory
 BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/bow/20250212_fix_split/'

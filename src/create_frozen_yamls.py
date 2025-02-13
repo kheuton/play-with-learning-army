@@ -16,7 +16,7 @@ FIXED_PARAMS = {
     'loss': 'bce',
     'use_wandb': False,
     'num_folds': 5,
-    'val_freq': 20,
+    'val_freq': 1,
 }
 
 # Base output directory

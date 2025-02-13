@@ -17,7 +17,7 @@ class BagOfWordsEmbedder(torch.nn.Module):
 
     def preprocess_data(self, dataset, hyper_config):
         x, y, problem_id, student_id = dataset
-        return torch.tensor(self.vectorizer.transform([x]).todense(), dtype=torch.float32), torch.tensor(y).to(self.device), problem_id.to(self.device), student_id.to(self.device)
+        return torch.tensor(self.vectorizer.transform(x).todense(), dtype=torch.float32), torch.tensor(y).to(self.device), problem_id.to(self.device), student_id.to(self.device)
 
     def forward(self, texts):
         return texts

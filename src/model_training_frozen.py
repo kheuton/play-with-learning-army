@@ -264,9 +264,11 @@ def train_model(fold, train_dataset, val_dataset,
         # evaluate every val_freq
         if epoch % hyper_config['val_freq'] == 0:
             with torch.no_grad():
-                embed_func.model.eval()
+                if hasattr(embed_func, 'model'):
+                    embed_func.model.eval()
                 val_nll, val_metrics = evaluate_model(val_dataloader,hyper_config, embed_func, criteria_embed_func, criteria_combiner, domain_model_dict, loss_func, problem_config, num_domains)
-            embed_func.model.train()
+            if hasattr(embed_func, 'model'):
+                embed_func.model.train()
 
             if val_nll < best_val_nll:
                 best_val_nll = val_nll

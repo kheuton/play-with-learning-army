@@ -12,16 +12,17 @@ def create_slurm_script(problem_config, hyper_config):
 #SBATCH -o /cluster/tufts/hugheslab/kheuto01/slurmlog/out/log_%j.out       # Write stdout to file named log_JOBIDNUM.out in log dir
 #SBATCH -e /cluster/tufts/hugheslab/kheuto01/slurmlog/err/log_%j.err       # Write stderr to file named log_JOBIDNUM.err in log dir
 #SBATCH --time=6:00:00
-#SBATCH --mem=16GB
-#SBATCH --partition=batch
+#SBATCH --mem=32GB
+#SBATCH --partition=hugheslab
 #SBATCH -n 4
 #SBATCH -N 1
+#SBATCH --gres=gpu:1
 #SBATCH --export=ALL
 
 export PYTHONPATH=$PYTHONPATH:/cluster/home/kheuto01/code/play-with-learning-army/src
 
 # Run the training script
-python src/model_training.py --problem_config {problem_config} --hyper_config {hyper_config}
+python src/model_training_frozen.py --problem_config {problem_config} --hyper_config {hyper_config}
 """
 
 def submit_job(problem_config, hyper_config):

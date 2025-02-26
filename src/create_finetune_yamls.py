@@ -11,7 +11,8 @@ FIXED_PARAMS = {
     'opt_weight_decay': 0,
     'device': 'cuda',
     'finetune': True,
-    'wandb_project': 'sensemaking_bert_finetune_eval',
+    'wandb_project': '20250226_sensemaking_bert_finetune_eval',
+    'bert_model_name': 'bert-base-uncased',
     'seed': 360,
     'num_epochs': 1000,
     'loss': 'l2sp',
@@ -25,12 +26,12 @@ ALPHAS = [0.1, 0.01, 0.001, 0.0001, 1e-5, 0]
 BETAS = [0.1, 0.01, 0.001, 0.0001, 1e-5, 0]
 BATCH_SIZES = [32]
 DATA_DIRS = [
-    '/cluster/home/kheuto01/code/play-with-learning-army/data/clean/test_15',
-    '/cluster/home/kheuto01/code/play-with-learning-army/data/clean/test_20'
-]
+    '/cluster/home/kheuto01/code/play-with-learning-army/data/clean/test_15',]
+    #'/cluster/home/kheuto01/code/play-with-learning-army/data/clean/test_20'
+#]
 
 # Base output directory
-BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/bertfinetune/20250212_fix_split/'
+BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/bertfinetune/20250226_fix_l2sp/'
 
 def create_experiment_name(lr, alpha, beta, data_dir):
     """Create experiment name from parameters including the test number."""

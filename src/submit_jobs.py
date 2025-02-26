@@ -11,17 +11,18 @@ def create_slurm_script(problem_config, hyper_config):
 #SBATCH --job-name=finetune
 #SBATCH -o /cluster/tufts/hugheslab/kheuto01/slurmlog/out/log_%j.out       # Write stdout to file named log_JOBIDNUM.out in log dir
 #SBATCH -e /cluster/tufts/hugheslab/kheuto01/slurmlog/err/log_%j.err       # Write stderr to file named log_JOBIDNUM.err in log dir
-#SBATCH --time=3:00:00
-#SBATCH --mem=16GB
-#SBATCH --partition=batch
+#SBATCH --time=6:00:00
+#SBATCH --mem=32GB
+#SBATCH --partition=hugheslab,ccgpu
 #SBATCH -n 4
 #SBATCH -N 1
 #SBATCH --export=ALL
+#SBATCH --gres=gpu:1
 
 export PYTHONPATH=$PYTHONPATH:/cluster/home/kheuto01/code/play-with-learning-army/src
 
 # Run the training script
-python src/model_training_frozen.py --problem_config {problem_config} --hyper_config {hyper_config}
+python src/simple_train_loop.py --problem_config {problem_config} --hyper_config {hyper_config}
 """
 
 def submit_job(problem_config, hyper_config):
@@ -69,7 +70,7 @@ def main():
     filtered_config_files = []
     for config_file in config_files:
         dir_path = os.path.dirname(config_file)
-        if not os.path.exists(os.path.join(dir_path, "best_model.pth")):
+        if not os.path.exists(os.path.join(dir_path, "final_model.pth")):
             filtered_config_files.append(config_file)
 
     config_files = filtered_config_files

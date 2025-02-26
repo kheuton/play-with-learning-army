@@ -41,7 +41,7 @@ def to_device(dataset, device):
     return torch.utils.data.TensorDataset(x, y, problem_id, student_id)
 
 
-def load_datasets(hyper_config, train=False, val=False, test=False):
+def load_datasets(hyper_config, problem_config, train=False, val=False, test=False):
     
     outputs = ()
 
@@ -56,19 +56,19 @@ def load_datasets(hyper_config, train=False, val=False, test=False):
         if train:
             processed_train_features, processed_train_labels = load_processed(hyper_config['train_x_file'].format(fold=fold),
                                                                               hyper_config['train_y_file'].format(fold=fold))
-            train_dataset = make_dataset(processed_train_features, processed_train_labels)
+            train_dataset = make_dataset(processed_train_features, processed_train_labels, problem_config)
             train_datasets.append(train_dataset)
 
         if val:
             processed_val_features, processed_val_labels = load_processed(hyper_config['val_x_file'].format(fold=fold),
                                                                           hyper_config['val_y_file'].format(fold=fold))
-            val_dataset = make_dataset(processed_val_features, processed_val_labels)
+            val_dataset = make_dataset(processed_val_features, processed_val_labels, problem_config)
             val_datasets.append(val_dataset)
 
         if test:
             processed_test_features, processed_test_labels = load_processed(hyper_config['test_x_file'].format(fold=fold), 
                                                                             hyper_config['test_y_file'].format(fold=fold))
-            test_dataset = make_dataset(processed_test_features, processed_test_labels)
+            test_dataset = make_dataset(processed_test_features, processed_test_labels, problem_config)
             test_datasets.append(test_dataset)
 
     if train:
@@ -94,24 +94,25 @@ def load_processed(x_path, y_path):
     max_length = max(len(arr) for arr in list_of_arrays)
 
     # Pad the arrays with NaNs to make them the same length
-    padded_y = np.array([np.pad(arr, (0, max_length - len(arr)), 'constant', constant_values=-999) for arr in list_of_arrays], dtype=np.float32)
+    padded_y = np.array([np.pad(arr, (0, max_length - len(arr)), 'constant', constant_values=0) for arr in list_of_arrays], dtype=np.float32)
 
     return x, padded_y
 
-def make_dataset(features, labels):
+def make_dataset(features, labels, problem_config):
 
     # extract problem_id and student_id as last 2 columns of x
-    problem_id = features.iloc[:, 1].values
-    student_id = features.iloc[:, 2]
+    problem_ids = features.iloc[:, 1].values
+    student_ids = features.iloc[:, 2]
     
     # go from Student ## -> ##
-    student_id = student_id.apply(lambda x: int(x.split(' ')[1])).values
+    student_ids = student_ids.apply(lambda x: int(x.split(' ')[1])).values
 
     x = features.iloc[:, 0].values.tolist()
     y = labels
+    criteria_questions = [problem_config['problems'][problem_id]['questions'] for problem_id in problem_ids]
 
     # create pytorch dataset
-    dataset = (x, y, problem_id, student_id)
+    dataset = (x, y, problem_ids, student_ids, criteria_questions)
 
     return dataset
 

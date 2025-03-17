@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import torch
+import datasets
 
 def read_raw(file_path, data_config, problem_id):
     """
@@ -39,6 +40,19 @@ def to_device(dataset, device):
     student_id = torch.tensor(student_id.values).to(device)
 
     return torch.utils.data.TensorDataset(x, y, problem_id, student_id)
+
+
+def create_hf_dataset(tuple_dataset):
+    texts, targets, problem_indices, prediction_counts, criteria_texts = tuple_dataset
+
+    dataset = datasets.Dataset.from_dict({
+        'text': texts,
+        'targets': targets,
+        'problem_indices': problem_indices,
+        'prediction_counts': prediction_counts,
+    })
+
+    return dataset, criteria_texts
 
 
 def load_datasets(hyper_config, problem_config, train=False, val=False, test=False):
@@ -109,7 +123,7 @@ def make_dataset(features, labels, problem_config):
 
     x = features.iloc[:, 0].values.tolist()
     y = labels
-    criteria_questions = [problem_config['problems'][problem_id]['questions'] for problem_id in problem_ids]
+    criteria_questions = {problem_id: problem_config['problems'][problem_id]['questions'] for problem_id in problem_ids}
 
     # create pytorch dataset
     dataset = (x, y, problem_ids, student_ids, criteria_questions)

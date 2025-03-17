@@ -33,6 +33,18 @@ class WeightedBCELoss(torch.nn.Module,):
         unweighted_nll = unweighted_nll.mean()
         # return 0 tensors for the other loss components
         return nll, torch.tensor(0), torch.tensor(0), torch.tensor(0), unweighted_nll
+    
+class UnWeightedBCELoss(torch.nn.Module,):
+    def __init__(self, criterion=torch.nn.BCELoss(reduction='none')):
+        super().__init__()
+        self.criterion = criterion
+
+    def forward(self, logits, labels, params):
+        nll = self.criterion(logits, labels)
+        nll = nll.mean()
+        unweighted_nll = nll.mean()
+        # return 0 tensors for the other loss components
+        return nll, torch.tensor(0), torch.tensor(0), torch.tensor(0), unweighted_nll
 
 def initialize_loss(hyper_config, model):
 
@@ -41,7 +53,7 @@ def initialize_loss(hyper_config, model):
         bb_loc = params
         return L2SPLoss(hyper_config['alpha'], bb_loc, hyper_config['beta'], criterion=torch.nn.BCELoss(reduction='none'))
     else:
-        return WeightedBCELoss()
+        return UnWeightedBCELoss()
     
 
 def initialize_optimizer(hyper_config, model):

@@ -1,5 +1,5 @@
 import torch
-import copy
+
 
 class L2SPLoss(torch.nn.Module):
     def __init__(self, alpha, bb_loc, beta, criterion=torch.nn.CrossEntropyLoss()):

@@ -1,4 +1,3 @@
-import os
 import pandas as pd
 import yaml
 from data_loader import read_raw

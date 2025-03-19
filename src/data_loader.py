@@ -1,5 +1,4 @@
 import pandas as pd
-import os
 import torch
 import datasets
 

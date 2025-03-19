@@ -11,8 +11,8 @@ def create_slurm_script(problem_config, hyper_config):
 #SBATCH --job-name=frozen
 #SBATCH -o /cluster/tufts/hugheslab/kheuto01/slurmlog/out/log_%j.out       # Write stdout to file named log_JOBIDNUM.out in log dir
 #SBATCH -e /cluster/tufts/hugheslab/kheuto01/slurmlog/err/log_%j.err       # Write stderr to file named log_JOBIDNUM.err in log dir
-#SBATCH --time=6:00:00
-#SBATCH --mem=32GB
+#SBATCH --time=2:00:00
+#SBATCH --mem=12GB
 #SBATCH --partition=batch
 #SBATCH -n 4
 #SBATCH -N 1
@@ -22,7 +22,7 @@ def create_slurm_script(problem_config, hyper_config):
 export PYTHONPATH=$PYTHONPATH:/cluster/home/kheuto01/code/play-with-learning-army/src
 
 # Run the training script
-python src/simple_train_loop.py --problem_config {problem_config} --hyper_config {hyper_config}
+python src/clear_thinking_train_loop.py --problem_config {problem_config} --hyper_config {hyper_config}
 """
 
 def submit_job(problem_config, hyper_config):

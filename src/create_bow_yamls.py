@@ -19,13 +19,13 @@ FIXED_PARAMS = {
     'val_freq': 1,
 }
 # Base output directory
-BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/bow/20250212_fix_split/'
+BASE_OUTPUT_DIR = '/cluster/tufts/hugheslab/kheuto01/sensemaking/bow/20250317_new_embed/'
 
 
 # Variable parameters
 LEARNING_RATES = [0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000005, 0.000001]
 WEIGHT_DECAYS = [0.1, 0.01, 0.001, 0.0001, 1e-5, 0]
-BATCH_SIZES = [32, 64, 128, 'N']
+BATCH_SIZES = ['N']
 DATA_DIRS = [
     '/cluster/home/kheuto01/code/play-with-learning-army/data/clean/test_15/fold_{fold}/',
     '/cluster/home/kheuto01/code/play-with-learning-army/data/clean/test_20/fold_{fold}'

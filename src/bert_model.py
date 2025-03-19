@@ -5,22 +5,24 @@ import time
 
 class MultiDomainMultiCriteriaClassifier(nn.Module):
     def __init__(self, 
-                 bert_model_name: str, 
                  criteria_to_head_mapping: list,    # List of lists: Maps each criterion to one of the 8 heads
                  embedding_dim: int = 768,
                  num_heads: int = 8,
                  output_length: int = 16,
-                 finetune: bool = True):
+                 finetune: bool = True,
+                 bert_model_name: str = None):
         super(MultiDomainMultiCriteriaClassifier, self).__init__()
 
-        # Load BERT model
-        self.bert = AutoModel.from_pretrained(bert_model_name)
+        if bert_model_name is not None:
+            # Load BERT model
+            self.bert = AutoModel.from_pretrained(bert_model_name)
 
-        self.finetune = finetune
-        if not self.finetune:
-            # Freeze all BERT layers:
-            for param in self.bert.parameters():
-                param.requires_grad = False
+            self.finetune = finetune
+            if not self.finetune:
+                # Freeze all BERT layers:
+                for param in self.bert.parameters():
+                    param.requires_grad = False
+        
 
         # Create 8 shared classification heads with sigmoid activation
         self.classification_heads = nn.ModuleList([
@@ -35,73 +37,31 @@ class MultiDomainMultiCriteriaClassifier(nn.Module):
         # Map each criterion to a classification head
         self.criteria_to_head_mapping = criteria_to_head_mapping  # Shape: [problems][criteria_indices]
 
-    def embed_texts(self, text_inputs):
-        """Assumes tokenized input. Returns embeddings for text batch."""
-
-
-        outputs = self.bert(**text_inputs)
-        return outputs.last_hidden_state[:, 0, :]  # (batch_size, embedding_dim)
-
-    def embed_criteria(self, criteria_inputs):
-        """Assumes tokenized input. Returns embeddings for criteria batch."""
+    def forward(self, dataset, criteria):
         
-        outputs = [self.bert(**crit_input) for crit_input in criteria_inputs]
-        return [output.last_hidden_state[:, 0, :] for output in outputs]  # (num_criteria, embedding_dim)
-
-    def forward(self, text_inputs, criteria_inputs_per_problem, problem_indices):
-        """
-        Args:
-            text_inputs (dict): Tokenized text inputs.
-            criteria_inputs_per_problem (list of dict): Tokenized criteria inputs for each problem.
-            problem_indices (list of int): Problem index for each text.
-
-        Returns:
-            torch.Tensor: Padded tensor of predictions (batch_size, max_criteria_count)
-            torch.Tensor: Mask tensor indicating valid predictions (batch_size, max_criteria_count)
-        """
-        overall_start_time = time.time()
-
-        batch_size = len(text_inputs)
+        batch_size = len(dataset['embedding'])
         outputs = []
         lengths = []
 
-        # Record time for embedding texts
-        text_embedding_start_time = time.time()
-        text_embs_list = [self.embed_texts(text_inputs[i]) for i in range(batch_size)]
-        text_embedding_end_time = time.time()
-        print(f"Text embedding time taken: {text_embedding_end_time - text_embedding_start_time:.4f} seconds")
 
         for i in range(batch_size):
-            problem_idx = problem_indices[i]
-            text_embs = text_embs_list[i]  # (batch_size, embedding_dim)
-
-            # Record time for embedding criteria
-            criteria_embedding_start_time = time.time()
-            criteria_inputs = criteria_inputs_per_problem[i]
-            criteria_embs = self.embed_criteria(criteria_inputs)  # (num_criteria, embedding_dim)
-            criteria_embedding_end_time = time.time()
-            print(f"Criteria embedding time taken for batch {i}: {criteria_embedding_end_time - criteria_embedding_start_time:.4f} seconds")
+            problem_idx = dataset['problem_indices'][i]
+            text_embs = dataset['embedding'][i] 
 
             criteria_indices = self.criteria_to_head_mapping[problem_idx]
 
             # Predict for each criterion using its mapped head
             problem_outputs = []
-            if len(criteria_embs) != len(criteria_indices):
-                import pdb; pdb.set_trace()
 
-            prediction_start_time = time.time()
             for j, head_idx in enumerate(criteria_indices):
-                combined_emb = text_embs + criteria_embs[j]  # Combine embeddings
+                combined_emb = text_embs + criteria[int(problem_idx)][j]  # Combine embeddings
                 prediction = self.classification_heads[head_idx](combined_emb)  # Sigmoid applied inside head
                 problem_outputs.append(prediction.squeeze())
-            prediction_end_time = time.time()
-            print(f"Prediction time taken for batch {i}: {prediction_end_time - prediction_start_time:.4f} seconds")
 
             outputs.append(torch.stack(problem_outputs))
             lengths.append(len(problem_outputs))
 
         # Pad outputs to uniform length for efficient loss computation
-        padding_start_time = time.time()
         max_length = self.output_length
         padded_outputs = torch.zeros(batch_size, max_length, device=text_embs.device)
         mask = torch.zeros(batch_size, max_length, device=text_embs.device)
@@ -111,11 +71,6 @@ class MultiDomainMultiCriteriaClassifier(nn.Module):
             if length > 0:
                 padded_outputs[i, :length] = output
                 mask[i, :length] = 1  # Mark valid predictions
-        padding_end_time = time.time()
-        print(f"Padding time taken: {padding_end_time - padding_start_time:.4f} seconds")
-
-        overall_end_time = time.time()
-        print(f"Total forward pass time taken: {overall_end_time - overall_start_time:.4f} seconds")
 
         return padded_outputs, mask  # (batch_size, max_criteria), (batch_size, max_criteria)
 

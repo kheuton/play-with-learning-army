@@ -1,9 +1,7 @@
 import torch
 import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer
-import time
-from preprocessing_registry import bert_applier
-import datasets
+
 
 class MultiDomainMultiCriteriaClassifier(nn.Module):
     def __init__(self, 
@@ -46,11 +44,9 @@ class MultiDomainMultiCriteriaClassifier(nn.Module):
 
 
         if 'embedding' not in dataset.keys():
-            bert_processor = bert_applier(self.bert, gradients=True)
-            device = dataset['input_ids'].device
-            dataset = datasets.Dataset.from_dict(dataset)
-            dataset.set_format('torch', device=device)
-            dataset = dataset.map(bert_processor, batched=True)
+            dataset['embedding'] = self.bert(input_ids=dataset['input_ids'],
+                                             attention_mask=dataset['attention_mask'],
+                                             token_type_ids=dataset['token_type_ids']).last_hidden_state[:, 0, :].squeeze()
 
             criteria = {problem_id: [self.bert(**crit_text).last_hidden_state[:, 0, :].squeeze() for crit_text in criteria[problem_id]]
                                     for problem_id in criteria.keys()}

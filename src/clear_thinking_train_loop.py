@@ -34,7 +34,8 @@ def run_experiment(hyper_config, problem_config):
     train_datasets = [create_hf_dataset(ds)[0] for ds in train_datasets]
     val_datasets = [create_hf_dataset(ds)[0] for ds in val_datasets]
 
-    if hyper_config['embedder'].contains('bert'):
+    # check if bert in name
+    if 'bert' in hyper_config['embedder'].lower():
         preprocessor = bert_preprocessing
     elif hyper_config['embedder'] == 'bow':
         preprocessor = bow_preprocessing
@@ -59,13 +60,26 @@ def run_experiment(hyper_config, problem_config):
                 train_dataset, train_criteria = preprocessor(train_dataset, criteria_texts, hyper_config)
                 val_dataset, val_criteria = preprocessor(val_dataset, criteria_texts, hyper_config)
             
-            train_loader = DataLoader(train_dataset.with_format("torch"), batch_size=batch_size, shuffle=True,)
-            val_loader = DataLoader(val_dataset.with_format("torch"), batch_size=batch_size, shuffle=False)
+            train_loader = DataLoader(train_dataset.with_format("torch", device=hyper_config['device']), batch_size=batch_size, shuffle=True,)
+            val_loader = DataLoader(val_dataset.with_format("torch", device=hyper_config['device']), batch_size=batch_size, shuffle=False)
+
+        # send to device
+        train_criteria = {k: [v.to(hyper_config['device']) for v in val] for k, val in train_criteria.items()}
+        val_criteria = {k: [v.to(hyper_config['device']) for v in val] for k, val in val_criteria.items()}
         
+
+        if 'embedding' in train_dataset.features:
+            embedding_dim = len(train_dataset['embedding'][0])
+        elif 'bert' in hyper_config['embedder'].lower():
+            embedding_dim = 768
+        else:
+            raise ValueError('Embedding dimension not found')   
+
         model = MultiDomainMultiCriteriaClassifier(
             finetune=hyper_config.get('finetune', False),
-            embedding_dim = len(train_dataset['embedding'][0]),
+            embedding_dim = embedding_dim,
             criteria_to_head_mapping=criteria_to_head_mapping,
+            bert_model_name=hyper_config.get('bert_model_name', None),
             output_length=max([len(c_list) for c_list in criteria_to_head_mapping])
         ).to(hyper_config['device'])
 
@@ -98,7 +112,7 @@ def run_experiment(hyper_config, problem_config):
                 model.eval()
                 with torch.no_grad():
                     val_loss = 0.0
-                    predictions_list, mask_list = [], []
+                    predictions_list, mask_list, targets_list = [], [], []
                     for batch in val_loader:
                         predictions, mask = model(batch, train_criteria)
 
@@ -110,8 +124,10 @@ def run_experiment(hyper_config, problem_config):
                         val_loss += loss.item()
                         predictions_list.append(predictions)
                         mask_list.append(mask)
+                        targets_list.append(targets)
 
                     predictions = torch.cat(predictions_list, dim=0)
+                    targets = torch.cat(targets_list, dim=0)
                     mask = torch.cat(mask_list, dim=0)
                     numpy_mask = mask.cpu().numpy()
                     masked_predictions = predictions.cpu().numpy()[numpy_mask == 1]

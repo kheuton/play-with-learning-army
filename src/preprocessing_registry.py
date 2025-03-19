@@ -62,7 +62,7 @@ def bert_preprocessing(dataset, criteria_texts, hyper_config, bert=None):
         bert = AutoModel.from_pretrained(hyper_config['bert_model_name'])
     bert.eval()
 
-    process_with_bert = bert_applier(bert)
+    process_with_bert = bert_applier(bert, gradients=False)
     embedded_dataset = tokenized_dataset.map(process_with_bert, batched=True, batch_size=batch_size)
 
     embedded_criteria = {problem_id: [bert(**crit_text).last_hidden_state[:, 0, :].squeeze() for crit_text in tokenized_criteria[problem_id]]
@@ -71,7 +71,7 @@ def bert_preprocessing(dataset, criteria_texts, hyper_config, bert=None):
     return embedded_dataset, embedded_criteria
 
 
-def bert_applier(bert):
+def bert_applier(bert, gradients=False):
     def process_with_bert(example):
         # Extract tokenized inputs
         inputs = {
@@ -84,8 +84,11 @@ def bert_applier(bert):
             inputs["token_type_ids"] = torch.tensor(example["token_type_ids"])
 
         # Run through BERT (disable gradient computation)
-        with torch.no_grad():
+        if gradients:
             outputs = bert(**inputs)
+        else:
+            with torch.no_grad():
+                outputs = bert(**inputs)
 
         # Extract last hidden state (CLS token embedding)
         cls_embedding = outputs.last_hidden_state[:, 0, :].squeeze()  # Shape: (hidden_dim)

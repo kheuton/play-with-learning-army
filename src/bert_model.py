@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer
 import time
+from preprocessing_registry import bert_applier
+import datasets
 
 class MultiDomainMultiCriteriaClassifier(nn.Module):
     def __init__(self, 
@@ -12,12 +14,15 @@ class MultiDomainMultiCriteriaClassifier(nn.Module):
                  finetune: bool = True,
                  bert_model_name: str = None):
         super(MultiDomainMultiCriteriaClassifier, self).__init__()
+        
+        self.finetune = finetune
 
-        if bert_model_name is not None:
+        if bert_model_name is not None and finetune:
+            # even though non-finetune models use bert, we can do it all in preprocessing
             # Load BERT model
             self.bert = AutoModel.from_pretrained(bert_model_name)
 
-            self.finetune = finetune
+            
             if not self.finetune:
                 # Freeze all BERT layers:
                 for param in self.bert.parameters():
@@ -38,6 +43,17 @@ class MultiDomainMultiCriteriaClassifier(nn.Module):
         self.criteria_to_head_mapping = criteria_to_head_mapping  # Shape: [problems][criteria_indices]
 
     def forward(self, dataset, criteria):
+
+
+        if 'embedding' not in dataset.keys():
+            bert_processor = bert_applier(self.bert, gradients=True)
+            device = dataset['input_ids'].device
+            dataset = datasets.Dataset.from_dict(dataset)
+            dataset.set_format('torch', device=device)
+            dataset = dataset.map(bert_processor, batched=True)
+
+            criteria = {problem_id: [self.bert(**crit_text).last_hidden_state[:, 0, :].squeeze() for crit_text in criteria[problem_id]]
+                                    for problem_id in criteria.keys()}
         
         batch_size = len(dataset['embedding'])
         outputs = []
